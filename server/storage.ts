@@ -7,6 +7,12 @@ import { Setting, InsertSetting, User, InsertUser, Product, InsertProduct,
   PointSetting, InsertPointSetting, PointRedemptionRule, InsertPointRedemptionRule
 } from '@shared/schema';
 import bcrypt from 'bcrypt';
+import { db } from './db';
+import { eq, and, desc, sql, like, gt, lt, or, isNull, asc } from 'drizzle-orm';
+import * as schema from '@shared/schema';
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from './db';
 
 export interface IStorage {
   // Settings
@@ -1443,4 +1449,11 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Import the DatabaseStorage class
+import { DatabaseStorage } from './databaseStorage';
+
+// Create a PostgreSQL session store
+const PostgresSessionStore = connectPg(session);
+
+// Use DatabaseStorage for persistent storage in PostgreSQL
+export const storage = new DatabaseStorage();

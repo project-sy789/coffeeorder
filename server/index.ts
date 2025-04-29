@@ -1,6 +1,20 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// โหลดไฟล์ .env.local ด้วยตนเอง
+const envLocalPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  const envConfig = dotenv.parse(fs.readFileSync(envLocalPath));
+  for (const k in envConfig) {
+    process.env[k] = envConfig[k];
+  }
+  console.log('Loaded environment variables from .env.local');
+  console.log('ADMIN_RESET_SECRET:', process.env.ADMIN_RESET_SECRET ? '[SET]' : 'undefined');
+}
 
 const app = express();
 app.use(express.json());

@@ -38,6 +38,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(schema.users);
   }
   
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(schema.users).where(eq(schema.users.role, role));
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
     return user;
