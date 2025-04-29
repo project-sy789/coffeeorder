@@ -184,11 +184,16 @@ Firebase เป็นแพลตฟอร์มของ Google ที่เห
 **สาเหตุที่เป็นไปได้**:
 - ไม่ได้ติดตั้งแพ็คเกจใน functions
 - Node.js เวอร์ชันไม่ตรงกับที่ Firebase รองรับ
+- ปัญหา TypeScript เกี่ยวกับการ import แบบ namespace
 
 **วิธีแก้ไข**:
 1. เข้าไปที่โฟลเดอร์ `functions` และรัน `npm install`
 2. ตรวจสอบเวอร์ชัน Node.js ใน `firebase.json` (ควรเป็น 18)
-3. Deploy เฉพาะ functions: `firebase deploy --only functions`
+3. หากพบข้อผิดพลาดเกี่ยวกับ TypeScript และ import แบบ namespace ให้รันเครื่องมือแก้ไข:
+   ```bash
+   ./firebase-fix.js
+   ```
+4. จากนั้น deploy อีกครั้ง: `firebase deploy --only functions`
 
 ### ปัญหาการเข้าสู่ระบบ
 
