@@ -264,6 +264,9 @@ Dockerfile
   log("\n3. หลังจาก deploy สำเร็จ คุณจะได้รับ URL สำหรับเข้าถึงแอปพลิเคชัน", "yellow");
   log("\n4. รันคำสั่งต่อไปนี้เพื่ออัพเดตฐานข้อมูล:", "yellow");
   log("   $ railway run npm run db:push", "white");
+  log("\n5. สร้างบัญชีผู้ดูแลระบบ (Admin) โดยเข้าที่ URL:", "yellow");
+  log("   [URL ของคุณ]/api/setup-admin", "white");
+  log("\n6. เข้าสู่ระบบด้วย Username: admin และ Password: admin123", "yellow");
 }
 
 // ฟังก์ชันสำหรับ deploy บน Firebase
@@ -410,6 +413,9 @@ exports.api = functions.https.onRequest(app);`);
   log("\n2. รันคำสั่งต่อไปนี้เพื่อ deploy:", "yellow");
   log("   $ firebase deploy", "white");
   log("\n3. หลังจาก deploy สำเร็จ คุณจะได้รับ URL สำหรับเข้าถึงแอปพลิเคชัน", "yellow");
+  log("\n4. สร้างบัญชีผู้ดูแลระบบ (Admin) โดยเข้าที่ URL:", "yellow");
+  log("   [URL ของคุณ]/api/setup-admin", "white");
+  log("\n5. เข้าสู่ระบบด้วย Username: admin และ Password: admin123", "yellow");
 }
 
 // ฟังก์ชันสำหรับ deploy บน Node.js + Express
@@ -504,6 +510,9 @@ try {
   log("\n4. กำหนดค่าเริ่มต้นแบบอัตโนมัติเมื่อระบบรีสตาร์ท:", "yellow");
   log("   $ pm2 startup", "white");
   log("   $ pm2 save", "white");
+  log("\n5. สร้างบัญชีผู้ดูแลระบบ (Admin) โดยเข้าที่ URL:", "yellow");
+  log("   http://localhost:5000/api/setup-admin หรือ [URL ของคุณ]/api/setup-admin", "white");
+  log("\n6. เข้าสู่ระบบด้วย Username: admin และ Password: admin123", "yellow");
 }
 
 // เริ่มต้นโปรแกรม

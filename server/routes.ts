@@ -20,6 +20,16 @@ import {
 import { WebSocketServer } from 'ws';
 import promptpay from 'promptpay-qr';
 import QRCode from 'qrcode';
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("th-TH", {
@@ -39,6 +49,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // API สำหรับสร้างผู้ใช้แอดมินโดยเฉพาะ
+  app.get('/api/setup-admin', async (req, res) => {
+    try {
+      // ตรวจสอบว่ามีผู้ใช้แอดมินอยู่แล้วหรือไม่
+      const existingAdmins = await storage.getUsersByRole('admin');
+      
+      if (existingAdmins.length > 0) {
+        return res.status(400).json({ 
+          message: "มีผู้ใช้แอดมินอยู่แล้ว ไม่สามารถสร้างเพิ่มได้", 
+          adminCount: existingAdmins.length 
+        });
+      }
+
+      // สร้างผู้ใช้แอดมิน
+      const hashedPassword = await hashPassword("admin123");
+      
+      const adminUser = await storage.createUser({
+        username: "admin",
+        password: hashedPassword,
+        name: "ผู้ดูแลระบบ",
+        role: "admin"
+      });
+
+      // ตัดข้อมูลรหัสผ่านออกเพื่อความปลอดภัย
+      const { password, ...adminInfo } = adminUser;
+      
+      res.status(201).json({ 
+        message: "สร้างผู้ใช้แอดมินเรียบร้อยแล้ว", 
+        admin: adminInfo,
+        loginInfo: {
+          username: "admin",
+          password: "admin123" // แสดงรหัสผ่านที่ยังไม่ได้เข้ารหัสสำหรับการล็อกอิน
+        }
+      });
+    } catch (error: any) {
+      console.error("Error creating admin user:", error);
+      res.status(500).json({
+        error: error.message || "เกิดข้อผิดพลาดในการสร้างผู้ใช้แอดมิน",
+      });
+    }
+  });
+
   // Add Global Error Handler
   app.use((err: any, req: Request, res: Response, next: any) => {
     console.error("Global error handler:", err);
@@ -55,11 +107,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
-    activeConnections.push(ws as unknown as WebSocket);
+    activeConnections.push(ws as any);
 
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
-      activeConnections = activeConnections.filter(conn => conn !== ws);
+      activeConnections = activeConnections.filter(conn => conn !== (ws as any));
     });
   });
 
