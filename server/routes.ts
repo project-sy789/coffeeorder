@@ -49,6 +49,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
   
+  // API สำหรับดึงข้อมูลธีม
+  app.get('/api/theme', async (req, res) => {
+    try {
+      const themeSetting = await storage.getSetting('theme');
+      if (!themeSetting) {
+        return res.status(404).json({ error: 'ไม่พบข้อมูลธีม' });
+      }
+      // แปลงค่า JSON string เป็น object
+      const theme = JSON.parse(themeSetting.value);
+      return res.status(200).json(theme);
+    } catch (error) {
+      console.error('Error fetching theme:', error);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลธีม' });
+    }
+  });
+  
+  // API สำหรับดึงข้อมูลการตั้งค่าทั้งหมด
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      return res.status(200).json(settings);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลการตั้งค่า' });
+    }
+  });
+  
+  // API สำหรับดึงข้อมูลการตั้งค่าตาม key
+  app.get('/api/settings/:key', async (req, res) => {
+    try {
+      const setting = await storage.getSetting(req.params.key);
+      if (!setting) {
+        return res.status(404).json({ error: 'ไม่พบข้อมูลการตั้งค่านี้' });
+      }
+      return res.status(200).json(setting);
+    } catch (error) {
+      console.error('Error fetching setting:', error);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลการตั้งค่า' });
+    }
+  });
+  
+  // API สำหรับดึงค่าของการตั้งค่าตาม key
+  app.get('/api/settings/value/:key', async (req, res) => {
+    try {
+      // กำหนด Content-Type เป็น application/json เพื่อให้มั่นใจว่าจะได้ JSON กลับมาเสมอ
+      res.setHeader('Content-Type', 'application/json');
+      
+      const setting = await storage.getSetting(req.params.key);
+      if (!setting) {
+        return res.status(404).json({ error: 'ไม่พบข้อมูลการตั้งค่านี้' });
+      }
+      return res.status(200).json({ value: setting.value });
+    } catch (error) {
+      console.error('Error fetching setting value:', error);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงค่าการตั้งค่า' });
+    }
+  });
+  
+  // API สำหรับสร้างหรืออัปเดตการตั้งค่า
+  app.post('/api/settings', async (req, res) => {
+    try {
+      const { key, value, description } = req.body;
+      const setting = await storage.createOrUpdateSetting(key, value, description);
+      return res.status(200).json(setting);
+    } catch (error) {
+      console.error('Error creating/updating setting:', error);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการสร้าง/อัปเดตการตั้งค่า' });
+    }
+  });
+  
   // API สำหรับการเข้าสู่ระบบ
   app.post('/api/login', async (req, res) => {
     try {
@@ -130,8 +200,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.writeFileSync(path.join(clientPublicPath, 'logo.png'), imageBuffer);
       }
       
-      // สร้าง favicon.ico จาก logo.png ด้วย (ทำเป็น favicon.png แทนเพราะไม่มี library แปลง ico)
+      // สร้าง favicon.png จาก logo.png
       fs.writeFileSync(path.join(process.cwd(), 'public', 'favicon.png'), imageBuffer);
+      
+      // สำหรับการพัฒนา บันทึกใน client/public ด้วย
+      if (fs.existsSync(clientPublicPath)) {
+        fs.writeFileSync(path.join(clientPublicPath, 'favicon.png'), imageBuffer);
+      }
+      
+      // บันทึกข้อมูลโลโก้ในฐานข้อมูล
+      await storage.createOrUpdateSetting('custom_logo', logo, 'โลโก้ที่กำหนดเอง');
       
       res.status(200).json({ message: "อัปโหลดโลโก้สำเร็จ" });
     } catch (error) {

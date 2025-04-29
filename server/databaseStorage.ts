@@ -91,6 +91,24 @@ export class DatabaseStorage implements IStorage {
     return updatedSetting;
   }
   
+  async createOrUpdateSetting(key: string, value: string, description: string | null = null): Promise<Setting> {
+    // ตรวจสอบว่ามีการตั้งค่านี้อยู่แล้วหรือไม่
+    const existingSetting = await this.getSetting(key);
+    
+    if (existingSetting) {
+      // อัปเดตการตั้งค่าที่มีอยู่
+      const [updatedSetting] = await db
+        .update(schema.settings)
+        .set({ value, description })
+        .where(eq(schema.settings.id, existingSetting.id))
+        .returning();
+      return updatedSetting;
+    } else {
+      // สร้างการตั้งค่าใหม่
+      return await this.createSetting({ key, value, description });
+    }
+  }
+  
   // ===== Products =====
   
   async getProducts(): Promise<Product[]> {

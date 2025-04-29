@@ -20,6 +20,7 @@ export interface IStorage {
   getSetting(key: string): Promise<Setting | undefined>;
   createSetting(setting: InsertSetting): Promise<Setting>;
   updateSetting(id: number, setting: Partial<Setting>): Promise<Setting | undefined>;
+  createOrUpdateSetting(key: string, value: string, description?: string | null): Promise<Setting>;
   
   // Users
   getUsers(): Promise<User[]>;
@@ -129,6 +130,18 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  async createOrUpdateSetting(key: string, value: string, description: string | null = null): Promise<Setting> {
+    // ตรวจสอบว่ามีการตั้งค่านี้อยู่แล้วหรือไม่
+    const existingSetting = await this.getSetting(key);
+    
+    if (existingSetting) {
+      // อัปเดตการตั้งค่าที่มีอยู่
+      return await this.updateSetting(existingSetting.id, { value, description }) as Setting;
+    } else {
+      // สร้างการตั้งค่าใหม่
+      return await this.createSetting({ key, value, description });
+    }
+  }
   private settings: Map<number, Setting>;
   private users: Map<number, User>;
   private products: Map<number, Product>;

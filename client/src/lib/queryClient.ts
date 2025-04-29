@@ -1,16 +1,13 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// กำหนดพอร์ตเซิร์ฟเวอร์ที่ถูกต้อง
-// สำหรับ Production ควรใช้ Firebase Functions URL ซึ่งจะเป็นรูปแบบ
-// https://us-central1-YOUR_FIREBASE_PROJECT_ID.cloudfunctions.net
-const API_BASE_URL = import.meta.env.PROD && import.meta.env.VITE_FIREBASE_API_URL
-  ? import.meta.env.VITE_FIREBASE_API_URL
-  : window.location.hostname === 'localhost'
-    ? 'http://localhost:5000'
-    : '';
+// กำหนดพอร์ตเซิร์ฟเวอร์ที่ถูกต้อง - สำหรับทั้ง Development และ Production
+// รองรับการ Deploy บน Render.com และ Railway
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : ''; // ในโหมด Production เราใช้ URL เดียวกัน จึงไม่จำเป็นต้องระบุ Base URL
 
-// หมายเหตุ: ในไฟล์ .env.production ให้กำหนดค่า
-// VITE_FIREBASE_API_URL=https://us-central1-YOUR_FIREBASE_PROJECT_ID.cloudfunctions.net
+// หมายเหตุ: การทำงานแบบนี้รองรับทั้ง Render.com และ Railway
+// ระบบจะส่ง request ไปที่โดเมนเดียวกันกับที่เซิร์ฟไฟล์ Frontend
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
