@@ -1,0 +1,65 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster-firebase % node easy-deploy.mjs
+
+====== ตัวช่วย Deploy คาเฟ่ของฉัน POS ======
+ระบบนี้จะช่วยให้คุณ deploy ระบบ POS คาเฟ่ได้ง่ายๆ
+
+=== เลือกแพลตฟอร์มที่ต้องการ deploy ===
+1. Railway.app (แนะนำ)
+2. Firebase Hosting
+3. Node.js + Express (Server ของคุณเอง)
+4. ออกจากโปรแกรม
+
+เลือกตัวเลือก (1-4): 2
+
+=== กำลังเตรียมไฟล์สำหรับการ deploy ===
+
+=== การ Deploy บน Firebase ===
+กำลังตรวจสอบ Firebase CLI...
+
+รันคำสั่ง: $ firebase --version > /dev/null 2>&1
+
+คุณต้องเข้าสู่ระบบ Firebase ก่อน
+ต้องการเข้าสู่ระบบตอนนี้หรือไม่? (y/n): y
+กำลังเข้าสู่ระบบ Firebase...
+
+รันคำสั่ง: $ firebase login
+
+Error: Invalid project id: YOUR_FIREBASE_PROJECT_ID.
+Note: Project id must be all lowercase.
+Error: Command failed: firebase login
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at checkExecSyncError (node:child_process:882:11)
+    at execSync (node:child_process:954:15)
+    at runCommand (file:///Users/jamies/Library/CloudStorage/OneDrive-%E0%B8%AA%E0%B9%88%E0%B8%A7%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%84%E0%B8%84%E0%B8%A5/VSC%20Project/CoffeeOrderMaster-firebase/easy-deploy.mjs:48:7)
+    at deployToFirebase (file:///Users/jamies/Library/CloudStorage/OneDrive-%E0%B8%AA%E0%B9%88%E0%B8%A7%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%84%E0%B8%84%E0%B8%A5/VSC%20Project/CoffeeOrderMaster-firebase/easy-deploy.mjs:466:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async deploy (file:///Users/jamies/Library/CloudStorage/OneDrive-%E0%B8%AA%E0%B9%88%E0%B8%A7%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%84%E0%B8%84%E0%B8%A5/VSC%20Project/CoffeeOrderMaster-firebase/easy-deploy.mjs:112:7) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 26530,
+  stdout: null,
+  stderr: null
+}
+
+คุณต้องเชื่อมต่อกับโปรเจคบน Firebase
+ต้องการสร้างโปรเจคใหม่หรือเชื่อมต่อกับโปรเจคที่มีอยู่แล้ว? (y/n): n
+
+กำลังสร้างไฟล์ที่จำเป็นสำหรับ Firebase...
+
+=== คำแนะนำการ Deploy บน Firebase ===
+1. รันคำสั่งต่อไปนี้เพื่อติดตั้งแพ็คเกจที่จำเป็น:
+undefined   $ npm install
+
+2. รันคำสั่งต่อไปนี้เพื่อ build โปรเจค:
+undefined   $ npm run build
+
+3. รันคำสั่งต่อไปนี้เพื่อ deploy:
+undefined   $ firebase deploy
+
+4. หลังจาก deploy สำเร็จ คุณจะได้รับ URL สำหรับเข้าถึงแอปพลิเคชัน
+
+=== การเตรียมการเสร็จสิ้น ===
+คุณสามารถเริ่มการ deploy ได้ตามคำแนะนำด้านบน
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster-firebase % 

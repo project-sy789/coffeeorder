@@ -1,0 +1,305 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm install -g firebase-tools
+
+added 1 package, and changed 630 packages in 28s
+
+70 packages are looking for funding
+  run `npm fund` for details
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase login
+Already logged in as nutrawee@subyaischool.ac.th
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm run build && firebase use --add
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+failed to load config from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts.timestamp-1745759190389-845eca50911af.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:268:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49)
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm run build && firebase use coffeeorder-ca521
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+failed to load config from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts.timestamp-1745759247604-fa165610d54a3.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:268:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49)
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm run build && firebase use --add
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+failed to load config from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/vite.config.ts.timestamp-1745759322243-bd207c8107daf.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:268:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49)
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm install vite @vitejs/plugin-react esbuild
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated npmlog@5.0.1: This package is no longer supported.
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated gauge@3.0.2: This package is no longer supported.
+
+added 705 packages, and audited 706 packages in 13s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+7 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm install
+
+up to date, audited 706 packages in 1s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+7 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % node -v
+v22.14.0
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase use --add
+? Which project do you want to add? coffeeorder-ca521
+? What alias do you want to use for this project? (e.g. staging) y
+
+Created alias y for coffeeorder-ca521.
+Now using alias y (coffeeorder-ca521)
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase init hosting
+
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+
+=== Project Setup
+
+First, let's associate this project directory with a Firebase project.
+You can create multiple project aliases by running firebase use --add, 
+but for now we'll just set up a default project.
+
+i  Using project coffeeorder-ca521 (CoffeeOrder)
+
+=== Hosting Setup
+
+Your public directory is the folder (relative to your project directory) that
+will contain Hosting assets to be uploaded with firebase deploy. If you
+have a build process for your assets, use your build's output directory.
+
+? What do you want to use as your public directory? dist
+? Configure as a single-page app (rewrite all urls to /index.html)? Yes
+? Set up automatic builds and deploys with GitHub? No
+✔  Wrote dist/index.html
+
+i  Writing configuration info to firebase.json...
+i  Writing project information to .firebaserc...
+
+✔  Firebase initialization complete!
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase deploy --only hosting
+
+=== Deploying to 'coffeeorder-ca521'...
+
+i  deploying hosting
+i  hosting[coffeeorder-ca521]: beginning deploy...
+i  hosting[coffeeorder-ca521]: found 1 files in dist
+✔  hosting[coffeeorder-ca521]: file upload complete
+i  hosting[coffeeorder-ca521]: finalizing version...
+✔  hosting[coffeeorder-ca521]: version finalized
+i  hosting[coffeeorder-ca521]: releasing new version...
+✔  hosting[coffeeorder-ca521]: release complete
+
+✔  Deploy complete!
+
+Project Console: https://console.firebase.google.com/project/coffeeorder-ca521/overview
+Hosting URL: https://coffeeorder-ca521.web.app
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % node firebase.setup.js
+file:///Users/jamies/Library/CloudStorage/OneDrive-%E0%B8%AA%E0%B9%88%E0%B8%A7%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%84%E0%B8%84%E0%B8%A5/VSC%20Project/CoffeeOrderMaster/firebase.setup.js:7
+const { execSync } = require('child_process');
+                     ^
+
+ReferenceError: require is not defined in ES module scope, you can use import instead
+This file is being treated as an ES module because it has a '.js' file extension and '/Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///Users/jamies/Library/CloudStorage/OneDrive-%E0%B8%AA%E0%B9%88%E0%B8%A7%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%84%E0%B8%84%E0%B8%A5/VSC%20Project/CoffeeOrderMaster/firebase.setup.js:7:22
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+
+Node.js v22.14.0
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase deploy
+
+=== Deploying to 'coffeeorder-ca521'...
+
+i  deploying functions, hosting
+Running command: npm --prefix "$RESOURCE_DIR" run build
+
+> build
+> tsc
+
+src/firestoreStorage.ts:1:24 - error TS2307: Cannot find module 'firebase-admin' or its corresponding type declarations.
+
+1 import * as admin from 'firebase-admin';
+                         ~~~~~~~~~~~~~~~~
+
+src/firestoreStorage.ts:9:20 - error TS6133: 'OrderItem' is declared but its value is never read.
+
+9   InsertOrderItem, OrderItem,
+                     ~~~~~~~~~
+
+src/firestoreStorage.ts:17:1 - error TS6133: 'bcrypt' is declared but its value is never read.
+
+17 import * as bcrypt from 'bcrypt';
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/firestoreStorage.ts:107:14 - error TS2420: Class 'FirestoreStorage' incorrectly implements interface 'IStorage'.
+  Type 'FirestoreStorage' is missing the following properties from type 'IStorage': getUsers, getUser, getUserByUsername, createUser, and 56 more.
+
+107 export class FirestoreStorage implements IStorage {
+                 ~~~~~~~~~~~~~~~~
+
+src/firestoreStorage.ts:120:30 - error TS7006: Parameter 'doc' implicitly has an 'any' type.
+
+120     return snapshot.docs.map(doc => ({
+                                 ~~~
+
+src/firestoreStorage.ts:156:11 - error TS2322: Type '{ id: number; key: string; value: string; description?: string | null | undefined; }' is not assignable to type '{ id: number; key: string; value: string; description: string | null; }'.
+  Types of property 'description' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | null'.
+      Type 'undefined' is not assignable to type 'string | null'.
+
+156     const newSetting: Setting = { ...setting, id: nextId };
+              ~~~~~~~~~~
+
+src/firestoreStorage.ts:179:17 - error TS6133: 'initializeSampleData' is declared but its value is never read.
+
+179   private async initializeSampleData() {
+                    ~~~~~~~~~~~~~~~~~~~~
+
+src/firestoreStorage.ts:189:5 - error TS2740: Type 'FirestoreStorage' is missing the following properties from type 'IStorage': getUsers, getUser, getUserByUsername, createUser, and 56 more.
+
+189     storageInstance = new FirestoreStorage();
+        ~~~~~~~~~~~~~~~
+
+src/firestoreStorage.ts:193:14 - error TS2740: Type 'FirestoreStorage' is missing the following properties from type 'IStorage': getUsers, getUser, getUserByUsername, createUser, and 56 more.
+
+193 export const storage: IStorage = new FirestoreStorage();
+                 ~~~~~~~
+
+src/index.ts:1:28 - error TS2307: Cannot find module 'firebase-functions' or its corresponding type declarations.
+
+1 import * as functions from 'firebase-functions';
+                             ~~~~~~~~~~~~~~~~~~~~
+
+src/index.ts:2:24 - error TS2307: Cannot find module 'firebase-admin' or its corresponding type declarations.
+
+2 import * as admin from 'firebase-admin';
+                         ~~~~~~~~~~~~~~~~
+
+src/index.ts:4:23 - error TS2307: Cannot find module 'cors' or its corresponding type declarations.
+
+4 import * as cors from 'cors';
+                        ~~~~~~
+
+src/index.ts:14:13 - error TS2349: This expression is not callable.
+  Type 'typeof e' has no call signatures.
+
+14 const app = express();
+               ~~~~~~~
+
+  src/index.ts:3:1
+    3 import * as express from 'express';
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+src/routes.ts:3:25 - error TS7016: Could not find a declaration file for module 'qrcode'. '/Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/node_modules/qrcode/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/qrcode` if it exists or add a new declaration (.d.ts) file containing `declare module 'qrcode';`
+
+3 import * as QRCode from 'qrcode';
+                          ~~~~~~~~
+
+src/routes.ts:5:1 - error TS6133: 'z' is declared but its value is never read.
+
+5 import { z } from "zod";
+  ~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/routes.ts:8:10 - error TS6133: 'formatCurrency' is declared but its value is never read.
+
+8 function formatCurrency(amount: number): string {
+           ~~~~~~~~~~~~~~
+
+src/routes.ts:114:42 - error TS7030: Not all code paths return a value.
+
+114   app.post('/api/generate-promptpay-qr', async (req, res) => {
+                                             ~~~~~~~~~~~~~~~~~~~~~
+
+src/routes.ts:127:23 - error TS2349: This expression is not callable.
+  Type '{ default: (target: string, options: Options) => string; }' has no call signatures.
+
+127       const payload = promptpay(phoneNumber, { amount });
+                          ~~~~~~~~~
+
+  src/routes.ts:4:1
+    4 import * as promptpay from 'promptpay-qr';
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+
+Found 18 errors in 3 files.
+
+Errors  Files
+     9  src/firestoreStorage.ts:1
+     4  src/index.ts:1
+     5  src/routes.ts:3
+
+Error: functions predeploy error: Command terminated with non-zero exit code 2
+^[[A%                                                                                                                             
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster %                

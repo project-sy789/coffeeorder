@@ -1,0 +1,66 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase login
+Already logged in as nutrawee@subyaischool.ac.th
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % firebase init
+
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /Users/jamies
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. (Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)
+? Which Firebase features do you want to set up for this directory? Press Space to select features, then Enter to confirm your 
+choices. Functions: Configure a Cloud Functions directory and its files, Hosting: Configure files for Firebase Hosting and 
+(optionally) set up GitHub Action deploys
+
+=== Project Setup
+
+First, let's associate this project directory with a Firebase project.
+You can create multiple project aliases by running firebase use --add, 
+but for now we'll just set up a default project.
+
+i  Using project subyai-92750 (Subyai)
+
+=== Functions Setup
+
+Detected existing codebase(s): default
+
+? Would you like to initialize a new codebase, or overwrite an existing one? Initialize
+Let's create a new codebase for your functions.
+A directory corresponding to the codebase will be created in your project
+with sample code pre-configured.
+
+See https://firebase.google.com/docs/functions/organize-functions for
+more information on organizing your functions using codebases.
+
+Functions can be deployed with firebase deploy.
+
+? What should be the name of this codebase? coffeeordermaster
+? In what sub-directory would you like to initialize your functions for codebase coffeeordermaster? coffeeordermaster
+? What language would you like to use to write Cloud Functions? 
+  JavaScript 
+  TypeScript 
+❯ Python 

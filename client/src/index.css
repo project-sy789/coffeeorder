@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 50% 97%;
+    --foreground: 30 35% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 30 35% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 35% 10%;
+    
+    --primary: 30 35% 33%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 32 40% 49%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --accent: 35 67% 63%;
+    --accent-foreground: 30 35% 14%;
+    
+    --muted: 30 5% 96%;
+    --muted-foreground: 30 10% 40%;
+    
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 30 10% 86%;
+    --input: 30 10% 86%;
+    --ring: 30 35% 33%;
+
+    --chart-1: 30 35% 33%;
+    --chart-2: 32 40% 49%;
+    --chart-3: 35 67% 63%;
+    --chart-4: 30 25% 18%;
+    --chart-5: 30 15% 75%;
+    
+    --radius: 0.5rem;
+    
+    /* Coffee theme specific colors */
+    --coffee-primary: #6F4E37;
+    --coffee-secondary: #A67C52;
+    --coffee-accent: #D4A76A;
+    --coffee-light: #F9F3EE;
+    --coffee-dark: #3C2A1E;
+    
+    /* Status colors */
+    --status-pending: #F59E0B;
+    --status-preparing: #3B82F6;
+    --status-ready: #10B981;
+    --status-completed: #9CA3AF;
+    --status-cancelled: #EF4444;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Prompt', 'Roboto', sans-serif;
+    background-color: var(--coffee-light);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Prompt', sans-serif;
+  }
+  
+  /* Custom tab styles */
+  .tab-active {
+    border-bottom: 3px solid var(--coffee-primary);
+    color: var(--coffee-primary);
+    font-weight: 500;
+  }
+  
+  /* Order status styles */
+  .order-status-circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  
+  .order-status-pending { background-color: var(--status-pending); }
+  .order-status-preparing { background-color: var(--status-preparing); }
+  .order-status-ready { background-color: var(--status-ready); }
+  .order-status-completed { background-color: var(--status-completed); }
+  .order-status-cancelled { background-color: var(--status-cancelled); }
+  
+  /* Customer page styles */
+  .customer-page {
+    background: linear-gradient(to bottom, #F9F3EE, #F5EAE0);
+    min-height: 100vh;
+  }
+  
+  .customer-header {
+    background-color: var(--coffee-primary);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .menu-card {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+  
+  .menu-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+  }
+  
+  .menu-image {
+    height: 180px;
+    object-fit: cover;
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+  }
+  
+  .category-pill {
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .category-pill.active {
+    background-color: var(--coffee-primary);
+    color: white;
+  }
+  
+  .category-pill:not(.active) {
+    background-color: white;
+    color: var(--coffee-dark);
+  }
+  
+  .category-pill:not(.active):hover {
+    background-color: var(--coffee-light);
+  }
+  
+  /* Order status card styles */
+  .status-card {
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    border-left-width: 4px;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+  }
+  
+  .status-card:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    color: white;
+  }
+  
+  .pulse-animation {
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  
+  /* Animation for highlighted order */
+  @keyframes highlightFade {
+    0% {
+      background-color: rgba(253, 224, 71, 0.3);
+    }
+    50% {
+      background-color: rgba(253, 224, 71, 0.1);
+    }
+    100% {
+      background-color: rgba(253, 224, 71, 0.3);
+    }
+  }
+  
+  .highlight-latest-order {
+    animation: highlightFade 2s infinite;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}

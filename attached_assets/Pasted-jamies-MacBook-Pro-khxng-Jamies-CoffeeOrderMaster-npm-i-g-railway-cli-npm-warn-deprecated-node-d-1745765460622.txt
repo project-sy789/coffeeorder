@@ -1,0 +1,250 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % npm i -g @railway/cli
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+changed 17 packages in 5s
+
+3 packages are looking for funding
+  run `npm fund` for details
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway login
+> Open the browser? No
+Browserless Login
+Please visit:
+  https://railway.com/cli-login?d=d29yZENvZGU9Y2FsbS1xdWl4b3RpYy1ub3hpb3VzLXlhcm4maG9zdG5hbWU9TWFjQm9vay1Qcm8ta2h4bmctSmFtaWVzLmxvY2Fs
+Your pairing code is: calm-quixotic-noxious-yarn
+Logged in as nutrawee@subyaischool.ac.th
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway link
+> Select a workspace Nutrawee Wisetsombut's Projects
+> Select a project CoffeeOrder
+> Select an environment production
+> Select a service <esc to skip> Postgres
+
+Project CoffeeOrder linked successfully! 🎉
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway variables
+╔═══════════════════════════ Variables for Postgres ═══════════════════════════╗
+║ DATABASE_PUBLIC_URL                 │ postgresql://                          ║
+║                                     │ postgres:taOWlEKBtErmJhiJOwVRSBPucXMyO ║
+║                                     │ ufy@gondola.proxy.rlwy.net:28885/      ║
+║                                     │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ DATABASE_URL                        │ postgresql://                          ║
+║                                     │ postgres:taOWlEKBtErmJhiJOwVRSBPucXMyO ║
+║                                     │ ufy@postgres.railway.internal:5432/    ║
+║                                     │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGDATA                              │ /var/lib/postgresql/data/pgdata        ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGDATABASE                          │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGHOST                              │ postgres.railway.internal              ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGPASSWORD                          │ taOWlEKBtErmJhiJOwVRSBPucXMyOufy       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGPORT                              │ 5432                                   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGUSER                              │ postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_DB                         │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_PASSWORD                   │ taOWlEKBtErmJhiJOwVRSBPucXMyOufy       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_USER                       │ postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_DEPLOYMENT_DRAINING_SECONDS │ 60                                     ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT                 │ production                             ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT_ID              │ d6a32b46-25ed-496d-9137-06fd2019c808   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT_NAME            │ production                             ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PRIVATE_DOMAIN              │ postgres.railway.internal              ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PROJECT_ID                  │ 8dfb3a91-3bc6-4474-95c2-0da52a80a05e   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PROJECT_NAME                │ CoffeeOrder                            ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_SERVICE_ID                  │ 4deecc93-8b66-47d8-91fe-3173600e01a2   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_SERVICE_NAME                │ Postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_APPLICATION_PORT        │ 5432                                   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_PROXY_DOMAIN            │ gondola.proxy.rlwy.net                 ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_PROXY_PORT              │ 28885                                  ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_ID                   │ 6bd49746-ded4-45da-b928-0bc0a3e6d8eb   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_MOUNT_PATH           │ /var/lib/postgresql/data               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_NAME                 │ circle-volume                          ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ SSL_CERT_DAYS                       │ 820                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway run npm run dev
+
+> rest-express@1.0.0 dev
+> tsx server/index.ts
+
+
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'express' imported from /Users/jamies/Library/CloudStorage/OneDrive-ส่วนบุคคล/VSC Project/CoffeeOrderMaster/server/index.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:268:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolveBase (file:///Users/jamies/.npm-global/lib/node_modules/tsx/dist/esm/index.mjs?1745765108646:2:3212)
+    at resolveDirectory (file:///Users/jamies/.npm-global/lib/node_modules/tsx/dist/esm/index.mjs?1745765108646:2:3584)
+    at resolveTsPaths (file:///Users/jamies/.npm-global/lib/node_modules/tsx/dist/esm/index.mjs?1745765108646:2:4073)
+    at async resolve (file:///Users/jamies/.npm-global/lib/node_modules/tsx/dist/esm/index.mjs?1745765108646:2:4441)
+    at async nextResolve (node:internal/modules/esm/hooks:748:22) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v22.14.0
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway up
+  Indexed                                                                                                                         
+  Compressed [====================] 100%                                                                                          
+  Uploaded                                                                                                                          Build Logs: https://railway.com/project/8dfb3a91-3bc6-4474-95c2-0da52a80a05e/service/4deecc93-8b66-47d8-91fe-3173600e01a2?id=64d321e9-83fa-4993-8e91-b4019bd3a060&
+
+[Region: asia-southeast1]
+=========================
+Using Detected Dockerfile
+=========================
+
+context: f7qb-IXXa
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load metadata for docker.io/library/node:18-alpine
+[auth] library/node:pull token for registry-1.docker.io
+[auth] library/node:pull token for registry-1.docker.io
+[internal] load metadata for docker.io/library/node:18-alpine
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[6/6] RUN npm run build
+[5/6] COPY . .
+[4/6] RUN npm install
+[3/6] COPY package*.json ./
+[internal] load build context
+[2/6] WORKDIR /app
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[internal] load build context
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[internal] load build context
+[2/6] WORKDIR /app
+[2/6] WORKDIR /app
+[internal] load build context
+[3/6] COPY package*.json ./
+[3/6] COPY package*.json ./
+[4/6] RUN npm install
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+
+npm warn deprecated npmlog@5.0.1: This package is no longer supported.
+
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+
+npm warn deprecated gauge@3.0.2: This package is no longer supported.
+
+npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+
+
+added 576 packages, and audited 577 packages in 9s
+
+
+69 packages are looking for funding
+
+  run `npm fund` for details
+
+
+8 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.3.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.3.0
+npm notice To update run: npm install -g npm@11.3.0
+npm notice
+
+[4/6] RUN npm install
+[5/6] COPY . .
+[5/6] COPY . .
+[6/6] RUN npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+vite v5.4.14 building for production...
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+✓ 3621 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+
+../dist/public/assets/index-CzsAIvvc.css     76.37 kB │ gzip:  13.36 kB
+
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 8.27s
+
+
+  dist/index.js  111.2kb
+
+⚡ Done in 7ms
+
+[6/6] RUN npm run build
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+Build time: 28.99 seconds
+Deploy complete
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/ec31ea06-581f-4d7b-9f70-a98e725d8cb2/vol_6aykhdnpmovrzmx0
+Starting Container
+กำลังเริ่มต้นเซิร์ฟเวอร์ POS คาเฟ่...
+พอร์ตที่กำหนด: 5432
+โหมดการทำงาน: Production
+พบการกำหนดค่า DATABASE_URL
+กำลังโหลดแอปพลิเคชัน...
+เซิร์ฟเวอร์เริ่มต้นเรียบร้อยแล้ว! 🚀
+เข้าถึงแอปพลิเคชันได้ที่: http://localhost:5432
+2:46:44 PM [express] serving on port 5000
+Stopping Container
+Stopping Container

@@ -1,0 +1,809 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { 
+  Tag, 
+  Calendar as CalendarIcon, 
+  Plus, 
+  Edit, 
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Ticket
+} from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { format } from "date-fns";
+import { th } from "date-fns/locale";
+
+// Define types for promotions
+interface Promotion {
+  id: number;
+  name: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  discountValue?: number;
+  code?: string;
+  minimumOrder?: number;
+  usageLimit: number; // 0 = ไม่จำกัด, > 0 = จำกัดจำนวนครั้ง
+  usedCount: number; // จำนวนครั้งที่ใช้ไปแล้ว
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  applicableProducts: number[] | null;
+}
+
+// Define schemas for validation
+const promotionSchema = z.object({
+  name: z.string().min(2, "ชื่อโปรโมชั่นต้องมีอย่างน้อย 2 ตัวอักษร"),
+  type: z.enum(['percentage', 'fixed']),
+  value: z.number().min(1, "ค่าส่วนลดต้องมากกว่า 0"),
+  discountValue: z.number().min(1, "มูลค่าส่วนลดต้องมากกว่า 0").optional(),
+  code: z.string().optional(),
+  minimumOrder: z.number().min(0).optional(),
+  usageLimit: z.number().min(0).default(0),
+  usedCount: z.number().min(0).default(0),
+  startDate: z.string(),
+  endDate: z.string(),
+  active: z.boolean(),
+  applicableProducts: z.array(z.number()).nullable(),
+});
+
+export default function PromotionManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'all' | 'expired'>('active');
+  
+  // Form state
+  const [formData, setFormData] = useState<Partial<Promotion>>({
+    name: '',
+    type: 'percentage',
+    value: 10,
+    discountValue: 0,
+    code: '',
+    minimumOrder: 0,
+    usageLimit: 0, // 0 หมายถึงไม่จำกัด
+    usedCount: 0,
+    startDate: new Date().toISOString(),
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+    active: true,
+    applicableProducts: null,
+  });
+
+  // Date pickers
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+
+  // Fetch promotions
+  const { data: promotions = [], refetch } = useQuery<Promotion[]>({
+    queryKey: ["/api/promotions"],
+  });
+
+  // Fetch products for selection
+  const { data: products = [] } = useQuery({
+    queryKey: ["/api/products"],
+  });
+
+  // Filter promotions based on active tab
+  const filteredPromotions = promotions.filter(promo => {
+    const now = new Date();
+    const start = new Date(promo.startDate);
+    const end = new Date(promo.endDate);
+    
+    switch (activeTab) {
+      case 'active':
+        return promo.active && now >= start && now <= end;
+      case 'expired':
+        return now > end || !promo.active;
+      default:
+        return true;
+    }
+  });
+
+  // Add promotion mutation
+  const addPromotionMutation = useMutation({
+    mutationFn: async (data: Partial<Promotion>) => {
+      await apiRequest('POST', '/api/promotions', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      toast({
+        title: "เพิ่มโปรโมชั่นสำเร็จ",
+        description: `เพิ่มโปรโมชั่น ${formData.name} แล้ว`,
+      });
+      resetForm();
+      setIsAddDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถเพิ่มโปรโมชั่นได้",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update promotion mutation
+  const updatePromotionMutation = useMutation({
+    mutationFn: async (data: Partial<Promotion>) => {
+      if (!selectedPromotion) return;
+      await apiRequest('PATCH', `/api/promotions/${selectedPromotion.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      toast({
+        title: "อัปเดตโปรโมชั่นสำเร็จ",
+        description: `อัปเดตโปรโมชั่น ${formData.name} แล้ว`,
+      });
+      resetForm();
+      setIsEditDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถอัปเดตโปรโมชั่นได้",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete promotion mutation
+  const deletePromotionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/promotions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      toast({
+        title: "ลบโปรโมชั่นสำเร็จ",
+        description: "ลบโปรโมชั่นแล้ว",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบโปรโมชั่นได้",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'number') {
+      setFormData((prev) => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleTypeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, type: value as 'percentage' | 'fixed' }));
+  };
+
+  const handleStartDateChange = (date?: Date) => {
+    if (date) {
+      setStartDate(date);
+      setFormData(prev => ({ ...prev, startDate: date.toISOString() }));
+    }
+  };
+
+  const handleEndDateChange = (date?: Date) => {
+    if (date) {
+      setEndDate(date);
+      setFormData(prev => ({ ...prev, endDate: date.toISOString() }));
+    }
+  };
+
+  const handleActiveChange = (checked: boolean) => {
+    setFormData(prev => ({ ...prev, active: checked }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      type: 'percentage',
+      value: 10,
+      discountValue: 0,
+      code: '',
+      minimumOrder: 0,
+      usageLimit: 0, // 0 หมายถึงไม่จำกัด
+      usedCount: 0,
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      active: true,
+      applicableProducts: null,
+    });
+    setStartDate(new Date());
+    setEndDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  };
+
+  const handleAddPromotion = () => {
+    try {
+      // Validate form data
+      promotionSchema.parse(formData);
+      
+      // Submit the form
+      addPromotionMutation.mutate(formData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors[0]?.message || "ข้อมูลไม่ถูกต้อง";
+        toast({
+          title: "ข้อมูลไม่ถูกต้อง",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: "ไม่สามารถเพิ่มโปรโมชั่นได้",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleEditPromotion = (promotion: Promotion) => {
+    setSelectedPromotion(promotion);
+    setFormData(promotion);
+    setStartDate(new Date(promotion.startDate));
+    setEndDate(new Date(promotion.endDate));
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePromotion = () => {
+    try {
+      // Validate form data
+      promotionSchema.parse(formData);
+      
+      // Submit the form
+      updatePromotionMutation.mutate(formData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors[0]?.message || "ข้อมูลไม่ถูกต้อง";
+        toast({
+          title: "ข้อมูลไม่ถูกต้อง",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: "ไม่สามารถอัปเดตโปรโมชั่นได้",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDeletePromotion = (id: number) => {
+    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโปรโมชั่นนี้?")) {
+      deletePromotionMutation.mutate(id);
+    }
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Ticket size={28} />
+            <span>จัดการโปรโมชั่น</span>
+          </h1>
+          <p className="text-muted-foreground">สร้างและจัดการส่วนลดและโปรโมชั่นต่างๆ</p>
+        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          เพิ่มโปรโมชั่นใหม่
+        </Button>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="mb-6">
+        <TabsList className="mb-4">
+          <TabsTrigger value="active" className="flex items-center gap-1">
+            <CheckCircle size={16} />
+            <span>โปรโมชั่นที่ใช้งานอยู่</span>
+          </TabsTrigger>
+          <TabsTrigger value="all" className="flex items-center gap-1">
+            <Tag size={16} />
+            <span>ทั้งหมด</span>
+          </TabsTrigger>
+          <TabsTrigger value="expired" className="flex items-center gap-1">
+            <XCircle size={16} />
+            <span>หมดอายุ</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <Card>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ชื่อโปรโมชั่น</TableHead>
+                <TableHead>ประเภท</TableHead>
+                <TableHead>มูลค่า</TableHead>
+                <TableHead>รหัสส่วนลด</TableHead>
+                <TableHead>วันที่เริ่ม</TableHead>
+                <TableHead>วันที่สิ้นสุด</TableHead>
+                <TableHead>การใช้งาน</TableHead>
+                <TableHead>สถานะ</TableHead>
+                <TableHead className="text-right">จัดการ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPromotions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6">
+                    ไม่พบข้อมูลโปรโมชั่น
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPromotions.map((promotion) => {
+                  const now = new Date();
+                  const end = new Date(promotion.endDate);
+                  const isExpired = now > end || !promotion.active;
+                  
+                  return (
+                    <TableRow key={promotion.id}>
+                      <TableCell className="font-medium">{promotion.name}</TableCell>
+                      <TableCell>
+                        {promotion.type === 'percentage' ? 'เปอร์เซ็นต์' : 'จำนวนเงิน'}
+                      </TableCell>
+                      <TableCell>
+                        {promotion.type === 'percentage' 
+                          ? `${promotion.value}%` 
+                          : formatCurrency(promotion.value)
+                        }
+                      </TableCell>
+                      <TableCell>{promotion.code || '-'}</TableCell>
+                      <TableCell>{formatDate(promotion.startDate)}</TableCell>
+                      <TableCell>{formatDate(promotion.endDate)}</TableCell>
+                      <TableCell>
+                        {promotion.usageLimit === 0 ? (
+                          'ไม่จำกัด'
+                        ) : (
+                          <>
+                            {promotion.usedCount ?? 0}/{promotion.usageLimit}
+                            {promotion.usageLimit !== 0 && promotion.usedCount !== undefined && promotion.usedCount >= promotion.usageLimit && (
+                              <span className="ml-1 text-red-600 text-xs">เต็มแล้ว</span>
+                            )}
+                          </>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          isExpired 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {isExpired ? 'หมดอายุ' : 'ใช้งานได้'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditPromotion(promotion)}
+                            className="flex items-center gap-1"
+                          >
+                            <Edit size={14} />
+                            <span>แก้ไข</span>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeletePromotion(promotion.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add Promotion Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>เพิ่มโปรโมชั่นใหม่</DialogTitle>
+            <DialogDescription>
+              กรอกข้อมูลเพื่อสร้างโปรโมชั่นใหม่
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">ชื่อโปรโมชั่น</Label>
+              <Input
+                id="name"
+                name="name"
+                placeholder="ชื่อโปรโมชั่น"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="type">ประเภทส่วนลด</Label>
+                <Select value={formData.type} onValueChange={handleTypeChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกประเภท" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">เปอร์เซ็นต์ (%)</SelectItem>
+                    <SelectItem value="fixed">จำนวนเงิน (฿)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="value">
+                  มูลค่าส่วนลด
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="value"
+                    name="value"
+                    type="number"
+                    placeholder="มูลค่า"
+                    value={formData.value}
+                    onChange={handleInputChange}
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    {formData.type === "percentage" ? "%" : "฿"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+
+            
+            <div className="space-y-2">
+              <Label htmlFor="code">รหัสส่วนลด (ถ้ามี)</Label>
+              <Input
+                id="code"
+                name="code"
+                placeholder="รหัสส่วนลด"
+                value={formData.code}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="minimumOrder">ยอดสั่งซื้อขั้นต่ำ (฿)</Label>
+              <Input
+                id="minimumOrder"
+                name="minimumOrder"
+                type="number"
+                placeholder="ยอดสั่งซื้อขั้นต่ำ"
+                value={formData.minimumOrder}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="usageLimit">จำกัดจำนวนการใช้งาน</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="usageLimit"
+                  name="usageLimit"
+                  type="number"
+                  placeholder="จำนวนครั้งที่จำกัด (0 = ไม่จำกัด)"
+                  value={formData.usageLimit}
+                  onChange={handleInputChange}
+                />
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {formData.usageLimit === 0 ? "ไม่จำกัด" : `${formData.usageLimit} ครั้ง`}
+                </div>
+              </div>
+              {formData.usedCount !== undefined && formData.usedCount > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  ใช้ไปแล้ว {formData.usedCount} ครั้ง
+                </p>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>วันที่เริ่ม</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP", { locale: th }) : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={handleStartDateChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>วันที่สิ้นสุด</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP", { locale: th }) : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={handleEndDateChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox
+                id="active"
+                checked={formData.active}
+                onCheckedChange={handleActiveChange}
+              />
+              <Label htmlFor="active">เปิดใช้งาน</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                resetForm();
+                setIsAddDialogOpen(false);
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button onClick={handleAddPromotion}>เพิ่มโปรโมชั่น</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Promotion Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>แก้ไขโปรโมชั่น</DialogTitle>
+            <DialogDescription>
+              แก้ไขข้อมูลโปรโมชั่น
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">ชื่อโปรโมชั่น</Label>
+              <Input
+                id="edit-name"
+                name="name"
+                placeholder="ชื่อโปรโมชั่น"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-type">ประเภทส่วนลด</Label>
+                <Select value={formData.type} onValueChange={handleTypeChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกประเภท" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">เปอร์เซ็นต์ (%)</SelectItem>
+                    <SelectItem value="fixed">จำนวนเงิน (฿)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-value">
+                  มูลค่าส่วนลด
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="edit-value"
+                    name="value"
+                    type="number"
+                    placeholder="มูลค่า"
+                    value={formData.value}
+                    onChange={handleInputChange}
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    {formData.type === "percentage" ? "%" : "฿"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-code">รหัสส่วนลด (ถ้ามี)</Label>
+              <Input
+                id="edit-code"
+                name="code"
+                placeholder="รหัสส่วนลด"
+                value={formData.code}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-minimumOrder">ยอดสั่งซื้อขั้นต่ำ (฿)</Label>
+              <Input
+                id="edit-minimumOrder"
+                name="minimumOrder"
+                type="number"
+                placeholder="ยอดสั่งซื้อขั้นต่ำ"
+                value={formData.minimumOrder}
+                onChange={handleInputChange}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-usageLimit">จำกัดจำนวนการใช้งาน</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="edit-usageLimit"
+                  name="usageLimit"
+                  type="number"
+                  placeholder="จำนวนครั้งที่จำกัด (0 = ไม่จำกัด)"
+                  value={formData.usageLimit}
+                  onChange={handleInputChange}
+                />
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {formData.usageLimit === 0 ? "ไม่จำกัด" : `${formData.usageLimit} ครั้ง`}
+                </div>
+              </div>
+              {formData.usedCount !== undefined && formData.usedCount > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  ใช้ไปแล้ว {formData.usedCount} ครั้ง
+                </p>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>วันที่เริ่ม</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP", { locale: th }) : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={handleStartDateChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>วันที่สิ้นสุด</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP", { locale: th }) : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={handleEndDateChange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox
+                id="edit-active"
+                checked={formData.active}
+                onCheckedChange={handleActiveChange}
+              />
+              <Label htmlFor="edit-active">เปิดใช้งาน</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                resetForm();
+                setIsEditDialogOpen(false);
+              }}
+            >
+              ยกเลิก
+            </Button>
+            <Button onClick={handleUpdatePromotion}>บันทึกการเปลี่ยนแปลง</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,213 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % node easy-deploy.mjs
+
+====== ตัวช่วย Deploy คาเฟ่ของฉัน POS ======
+ระบบนี้จะช่วยให้คุณ deploy ระบบ POS คาเฟ่ได้ง่ายๆ
+
+=== เลือกแพลตฟอร์มที่ต้องการ deploy ===
+1. Railway.app (แนะนำ)
+2. Firebase Hosting
+3. Node.js + Express (Server ของคุณเอง)
+4. ออกจากโปรแกรม
+
+เลือกตัวเลือก (1-4): 1
+
+=== กำลังเตรียมไฟล์สำหรับการ deploy ===
+
+=== การ Deploy บน Railway.app ===
+กำลังตรวจสอบ Railway CLI...
+
+คุณต้องเข้าสู่ระบบ Railway ก่อน
+ต้องการเข้าสู่ระบบตอนนี้หรือไม่? (y/n): y
+กำลังเข้าสู่ระบบ Railway...
+> Open the browser? No
+Browserless Login
+Please visit:
+  https://railway.com/cli-login?d=d29yZENvZGU9Y3V0ZS1mcmV0ZnVsLXJhbXBhbnQtZG93bnRvd24maG9zdG5hbWU9TWFjQm9vay1Qcm8ta2h4bmctSmFtaWVzLmxvY2Fs
+Your pairing code is: cute-fretful-rampant-downtown
+Logged in as nutrawee@subyaischool.ac.th
+
+คุณต้องเชื่อมต่อกับโปรเจคบน Railway
+ตัวเลือก:
+1. สร้างโปรเจคใหม่
+2. เชื่อมต่อกับโปรเจคที่มีอยู่แล้ว
+เลือกตัวเลือก (1/2): 2
+> Select a workspace Nutrawee Wisetsombut's Projects
+> Select a project coffeeorder
+> Select an environment production
+> Select a service <esc to skip> coffeeorder
+
+Project coffeeorder linked successfully! 🎉
+
+คุณต้องมีฐานข้อมูล PostgreSQL สำหรับโปรเจคนี้
+แต่หากไม่สร้างฐานข้อมูล ระบบจะใช้การเก็บข้อมูลในหน่วยความจำแทน
+ต้องการเพิ่มฐานข้อมูล PostgreSQL หรือไม่? (y/n): y
+กำลังเพิ่มฐานข้อมูล PostgreSQL...
+1. เมื่อมีตัวเลือกปรากฏ ให้เลือก 'Database'
+2. เมื่อถามว่าต้องการ database ประเภทไหน ให้เลือก 'PostgreSQL'
+> What do you need? Database
+> Select databases to add PostgreSQL
+  🎉 Added PostgreSQL to project                                                                                                  
+=== กำลังเชื่อมต่อฐานข้อมูล ===
+กำลังตั้งค่าฐานข้อมูลสำหรับแอปพลิเคชัน...
+
+เลือกพื้นที่ทำงาน, โปรเจค, และสภาพแวดล้อมบน Railway
+ต้องการเชื่อมต่อกับฐานข้อมูลที่สร้างขึ้นหรือไม่? (y/n): y
+
+เลือกพื้นที่ทำงาน, โปรเจค, และสภาพแวดล้อมในขั้นตอนต่อไป
+> Select a workspace Nutrawee Wisetsombut's Projects
+> Select a project coffeeorder
+> Select an environment production
+> Select a service <esc to skip> coffeeorder
+
+Project coffeeorder linked successfully! 🎉
+
+=== การตั้งค่า DATABASE_URL ===
+คุณควรตั้งค่า DATABASE_URL สำหรับแอปพลิเคชันบนหน้าเว็บไซต์ Railway
+1. ไปที่ https://railway.app/
+2. เลือกโปรเจคของคุณ
+3. เลือกบริการฐานข้อมูล PostgreSQL ที่คุณเพิ่งสร้าง
+4. ไปที่แท็บ Variables และคัดลอกค่า DATABASE_URL
+5. กลับไปที่บริการแอปพลิเคชันหลักของคุณ
+6. ไปที่แท็บ Variables และเพิ่มตัวแปร DATABASE_URL ด้วยค่าที่คัดลอกมา
+7. คลิก Deploy อีกครั้งเพื่อรีสตาร์ทแอปพลิเคชัน
+
+กำลังสร้างไฟล์ที่จำเป็นสำหรับ Railway...
+✅ สร้างไฟล์ Procfile เรียบร้อยแล้ว
+✅ สร้างไฟล์ railway.toml เรียบร้อยแล้ว
+✅ สร้างไฟล์ start-server.js เรียบร้อยแล้ว
+✅ สร้างไฟล์ .dockerignore เรียบร้อยแล้ว
+
+ต้องการ deploy อัตโนมัติหรือไม่?
+ถ้าเลือก 'y' ระบบจะทำการ build, deploy และตั้งค่า URL ให้อัตโนมัติ
+ต้องการ deploy อัตโนมัติหรือไม่? (y/n): y
+
+=== กำลังติดตั้งแพ็คเกจที่จำเป็น ===
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated npmlog@5.0.1: This package is no longer supported.
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated gauge@3.0.2: This package is no longer supported.
+
+added 705 packages, and audited 706 packages in 11s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+9 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+=== กำลัง Build โปรเจค ===
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.18 building for production...
+transforming (1) index.htmlBrowserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 3621 modules transformed.
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+../dist/public/assets/index-CzsAIvvc.css     76.37 kB │ gzip:  13.36 kB
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.33s
+
+  dist/index.js  111.2kb
+
+⚡ Done in 10ms
+
+=== กำลัง Deploy ขึ้น Railway ===
+  Indexed                                                                                                                         
+  Compressed [====================] 100%                                                                                          
+  Uploaded                                                                                                                          Build Logs: https://railway.com/project/8d1d4544-940d-4c1d-8092-8e75bf512fc4/service/e9791647-8fb4-49d7-8eec-a58efffb0c40?id=3ffd4a78-632b-4039-90ef-4df9bbe79766&
+
+[Region: asia-southeast1]
+=========================
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[auth] library/node:pull token for registry-1.docker.io
+[auth] library/node:pull token for registry-1.docker.io
+[internal] load metadata for docker.io/library/node:18-alpine
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[6/6] RUN npm run build
+[5/6] COPY . .
+[4/6] RUN npm install
+[3/6] COPY package*.json ./
+[internal] load build context
+[2/6] WORKDIR /app
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[internal] load build context
+[internal] load build context
+[internal] load build context
+[2/6] WORKDIR /app
+[3/6] COPY package*.json ./
+[4/6] RUN npm install
+[5/6] COPY . .
+[5/6] COPY . .
+[6/6] RUN npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+vite v5.4.18 building for production...
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+✓ 3621 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+
+../dist/public/assets/index-CzsAIvvc.css     76.37 kB │ gzip:  13.36 kB
+
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 9.14s
+
+
+  dist/index.js  111.2kb
+
+⚡ Done in 8ms
+
+[6/6] RUN npm run build
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+Build time: 13.92 seconds
+Deploy complete
+Starting Container
+กำลังโหลดแอปพลิเคชัน...
+เซิร์ฟเวอร์เริ่มต้นเรียบร้อยแล้ว! 🚀
+เข้าถึงแอปพลิเคชันได้ที่: http://localhost:8080
+4:01:45 PM [express] serving on port 5000

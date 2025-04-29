@@ -1,0 +1,78 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway link
+> Select a workspace Nutrawee Wisetsombut's Projects
+> Select a project CoffeeOrder
+> Select an environment production
+> Select a service <esc to skip> Postgres
+
+Project CoffeeOrder linked successfully! 🎉
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway variables
+╔═══════════════════════════ Variables for Postgres ═══════════════════════════╗
+║ DATABASE_PUBLIC_URL                 │ postgresql://                          ║
+║                                     │ postgres:taOWlEKBtErmJhiJOwVRSBPucXMyO ║
+║                                     │ ufy@gondola.proxy.rlwy.net:28885/      ║
+║                                     │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ DATABASE_URL                        │ postgresql://                          ║
+║                                     │ postgres:taOWlEKBtErmJhiJOwVRSBPucXMyO ║
+║                                     │ ufy@postgres.railway.internal:5432/    ║
+║                                     │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGDATA                              │ /var/lib/postgresql/data/pgdata        ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGDATABASE                          │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGHOST                              │ postgres.railway.internal              ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGPASSWORD                          │ taOWlEKBtErmJhiJOwVRSBPucXMyOufy       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGPORT                              │ 5432                                   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ PGUSER                              │ postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_DB                         │ railway                                ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_PASSWORD                   │ taOWlEKBtErmJhiJOwVRSBPucXMyOufy       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ POSTGRES_USER                       │ postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_DEPLOYMENT_DRAINING_SECONDS │ 60                                     ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT                 │ production                             ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT_ID              │ d6a32b46-25ed-496d-9137-06fd2019c808   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_ENVIRONMENT_NAME            │ production                             ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PRIVATE_DOMAIN              │ postgres.railway.internal              ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PROJECT_ID                  │ 8dfb3a91-3bc6-4474-95c2-0da52a80a05e   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_PROJECT_NAME                │ CoffeeOrder                            ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_SERVICE_ID                  │ 4deecc93-8b66-47d8-91fe-3173600e01a2   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_SERVICE_NAME                │ Postgres                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_APPLICATION_PORT        │ 5432                                   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_PROXY_DOMAIN            │ gondola.proxy.rlwy.net                 ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_TCP_PROXY_PORT              │ 28885                                  ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_ID                   │ 6bd49746-ded4-45da-b928-0bc0a3e6d8eb   ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_MOUNT_PATH           │ /var/lib/postgresql/data               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ RAILWAY_VOLUME_NAME                 │ circle-volume                          ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ SSL_CERT_DAYS                       │ 820                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % railway variables set KEY=VALUE
+error: unexpected argument 'set' found
+
+Usage: railway variables [OPTIONS]
+
+For more information, try '--help'.
+
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster % 

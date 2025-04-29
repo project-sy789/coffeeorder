@@ -1,0 +1,226 @@
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster-railway % node easy-deploy.mjs
+
+====== ตัวช่วย Deploy คาเฟ่ของฉัน POS ======
+ระบบนี้จะช่วยให้คุณ deploy ระบบ POS คาเฟ่ได้ง่ายๆ
+
+=== เลือกแพลตฟอร์มที่ต้องการ deploy ===
+1. Railway.app (แนะนำ)
+2. Firebase Hosting
+3. Node.js + Express (Server ของคุณเอง)
+4. ออกจากโปรแกรม
+
+เลือกตัวเลือก (1-4): 1
+
+=== กำลังเตรียมไฟล์สำหรับการ deploy ===
+
+=== การ Deploy บน Railway.app ===
+กำลังตรวจสอบ Railway CLI...
+
+รันคำสั่ง: $ railway --version > /dev/null 2>&1
+
+คุณต้องเข้าสู่ระบบ Railway ก่อน
+ต้องการเข้าสู่ระบบตอนนี้หรือไม่? (y/n): n
+
+คุณต้องเชื่อมต่อกับโปรเจคบน Railway
+ตัวเลือก:
+1. สร้างโปรเจคใหม่
+2. เชื่อมต่อกับโปรเจคที่มีอยู่แล้ว
+เลือกตัวเลือก (1/2): 2
+
+รันคำสั่ง: $ railway link
+> Select a workspace Nutrawee Wisetsombut's Projects
+> Select a project coffee app
+> Select an environment production
+> Select a service <esc to skip> Coffee app
+
+Project coffee app linked successfully! 🎉
+
+คุณต้องมีฐานข้อมูล PostgreSQL สำหรับโปรเจคนี้
+แต่หากไม่สร้างฐานข้อมูล ระบบจะใช้การเก็บข้อมูลในหน่วยความจำแทน
+ต้องการเพิ่มฐานข้อมูล PostgreSQL หรือไม่? (y/n): n
+
+กำลังสร้างไฟล์ที่จำเป็นสำหรับ Railway...
+✅ สร้างไฟล์ Procfile เรียบร้อยแล้ว
+✅ สร้างไฟล์ railway.toml เรียบร้อยแล้ว
+✅ สร้างไฟล์ start-server.js เรียบร้อยแล้ว
+✅ สร้างไฟล์ .dockerignore เรียบร้อยแล้ว
+
+ต้องการ deploy อัตโนมัติหรือไม่?
+ถ้าเลือก 'y' ระบบจะทำการ build, deploy และตั้งค่า URL ให้อัตโนมัติ
+ต้องการ deploy อัตโนมัติหรือไม่? (y/n): y
+
+=== กำลังติดตั้งแพ็คเกจที่จำเป็น ===
+
+รันคำสั่ง: $ npm install
+
+up to date, audited 706 packages in 1s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+9 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+=== กำลัง Build โปรเจค ===
+
+รันคำสั่ง: $ npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.18 building for production...
+transforming (1) index.htmlBrowserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 3621 modules transformed.
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+../dist/public/assets/index-CzsAIvvc.css     76.37 kB │ gzip:  13.36 kB
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.00s
+
+  dist/index.js  111.2kb
+
+⚡ Done in 16ms
+
+=== กำลัง Deploy ขึ้น Railway ===
+บนโปรเจคของคุณอาจมีหลายบริการ เช่น แอปพลิเคชันหลัก, ฐานข้อมูล, ฯลฯ
+ชื่อบริการที่ต้องการ deploy (ถ้าไม่ทราบให้กด Enter): 
+กำลัง deploy ทุกบริการ...
+
+รันคำสั่ง: $ railway up
+  Indexed                                                                                                                         
+  Compressed [====================] 100%                                                                                          
+  Uploaded                                                                                                                          Build Logs: https://railway.com/project/ea782dce-a523-4e96-8325-51bd059b9a09/service/746a1975-9e75-4495-83ee-34e13f03a9ba?id=d9d4f125-6f31-447d-8228-20d1e99cea5f&
+
+[Region: asia-southeast1]
+=========================
+Using Detected Dockerfile
+=========================
+
+context: b577-6dqO
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load build definition from Dockerfile
+[internal] load metadata for docker.io/library/node:18-alpine
+[internal] load metadata for docker.io/library/node:18-alpine
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[internal] load .dockerignore
+[6/6] RUN npm run build
+[5/6] COPY . .
+[4/6] RUN npm install
+[3/6] COPY package*.json ./
+[internal] load build context
+[2/6] WORKDIR /app
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[internal] load build context
+[internal] load build context
+[1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+[internal] load build context
+[internal] load build context
+[2/6] WORKDIR /app
+[3/6] COPY package*.json ./
+[3/6] COPY package*.json ./
+[4/6] RUN npm install
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+
+npm warn deprecated npmlog@5.0.1: This package is no longer supported.
+
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+
+npm warn deprecated gauge@3.0.2: This package is no longer supported.
+
+npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
+
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+
+
+added 576 packages, and audited 577 packages in 9s
+
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+
+9 moderate severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.3.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.3.0
+npm notice To update run: npm install -g npm@11.3.0
+npm notice
+
+[4/6] RUN npm install
+[5/6] COPY . .
+[5/6] COPY . .
+[6/6] RUN npm run build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+vite v5.4.18 building for production...
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+✓ 3621 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+
+../dist/public/assets/index-CzsAIvvc.css     76.37 kB │ gzip:  13.36 kB
+
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 8.00s
+
+
+  dist/index.js  111.2kb
+
+⚡ Done in 8ms
+
+[6/6] RUN npm run build
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+Build time: 27.50 seconds
+Deploy complete
