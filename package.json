@@ -107,5 +107,9 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "bin": {
+    "deploy-railway": "./simple-deploy-railway.js",
+    "deploy-firebase": "./simple-deploy-firebase.js"
   }
 }
