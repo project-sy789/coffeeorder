@@ -91,25 +91,39 @@ async function testConnection(pool: Pool): Promise<boolean> {
 try {
   console.log("Attempting to connect to database...");
 
-  // สร้างการเชื่อมต่อแบบโดยตรงโดยไม่ใช้ WebSocket เพื่อหลีกเลี่ยงปัญหาบน Render.com
+  // สร้างการเชื่อมต่อแบบตรงกับฐานข้อมูล โดยไม่ใช้ WebSocket
   console.log("Creating direct database connection pool without WebSocket");
   
-  // กำหนดค่าการเชื่อมต่อสำหรับสภาพแวดล้อม production/Render.com
-  const productionConfig = {
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 30000,
-    max: 5, // จำกัดจำนวนการเชื่อมต่อในสภาพแวดล้อม production
-    idleTimeoutMillis: 10000, // ปิดการเชื่อมต่อเมื่อไม่ได้ใช้งานเร็วขึ้น
-    allowExitOnIdle: true
-  };
-  
-  // ใช้การตั้งค่าแบบเดียวกันในทุกสภาพแวดล้อมเพื่อหลีกเลี่ยงปัญหาความซับซ้อน
-  if (process.env.RENDER || process.env.RENDER_INTERNAL_HOSTNAME) {
-    console.log("Detected Render.com environment");
+  // กำหนดค่าการเชื่อมต่อที่แตกต่างกันตามสภาพแวดล้อม
+  if (isProduction && (process.env.RENDER || process.env.RENDER_INTERNAL_HOSTNAME)) {
+    console.log("Detected Render.com environment - using Render optimized connection");
+    
+    // ตรวจสอบว่าใช้ internal PostgreSQL ของ Render หรือไม่
+    if (connectionString.includes("postgresql.render.com") || 
+        connectionString.includes("postgres.render.com") ||
+        connectionString.includes("internal")) {
+      console.log("Using Render internal PostgreSQL");
+      
+      // ตั้งค่าโดยตรงสำหรับ internal PostgreSQL บน Render.com
+      // ซึ่งไม่ต้องการ SSL และมีการตั้งค่าที่เหมาะสมกว่า
+      pool = new Pool({
+        connectionString,
+        ssl: false,
+        max: 3, // จำกัดการเชื่อมต่อพร้อมกันเพื่อประหยัดทรัพยากร
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 5000 // ลดเวลารอการเชื่อมต่อ
+      });
+      
+      console.log("Created direct pool for Render internal PostgreSQL");
+    } else {
+      console.log("Using external PostgreSQL with Render");
+      pool = createDirectPool(connectionString);
+    }
+  } else {
+    // สภาพแวดล้อม development หรือ production ที่ไม่ใช่ Render
+    console.log("Using standard PostgreSQL connection");
+    pool = createDirectPool(connectionString);
   }
-  
-  pool = createDirectPool(connectionString);
   
   // ตั้งค่า error handler เพื่อแสดงข้อผิดพลาดโดยละเอียด
   pool.on('error', (err) => {
