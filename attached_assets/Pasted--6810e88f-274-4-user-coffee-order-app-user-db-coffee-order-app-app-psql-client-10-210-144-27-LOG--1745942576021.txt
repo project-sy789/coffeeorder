@@ -1,0 +1,18 @@
+[6810e88f.274-4] user=coffee_order_app_user,db=coffee_order_app,app=psql,client=10.210.144.27,LOG:  could not receive data from client: Connection reset by peer
+[6810e88f.274-5] user=coffee_order_app_user,db=coffee_order_app,app=psql,client=10.210.144.27,LOG:  disconnection: session time: 0:36:23.164 user=coffee_order_app_user database=coffee_order_app host=10.210.144.27 port=39960
+[6810e699.82-17] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-18] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.014 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=329 kB; lsn=0/1C60830, redo lsn=0/1C607F8
+[6810e699.82-19] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-20] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.013 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=296 kB; lsn=0/1C60CD8, redo lsn=0/1C60CA0
+[6810e699.82-21] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-22] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.013 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=267 kB; lsn=0/1C61180, redo lsn=0/1C61148
+[6810f454.d88-1] user=[unknown],db=[unknown],app=[unknown],client=10.210.125.188,LOG:  connection received: host=10.210.125.188 port=38452
+[6810f454.d88-2] user=coffee_order_app_user,db=coffee_order_app,app=[unknown],client=10.210.125.188,LOG:  connection authenticated: identity="coffee_order_app_user" method=md5 (/pgdata/dpg-d08ecufdiees73993aj0-a/pg_hba.conf:88)
+[6810f454.d88-3] user=coffee_order_app_user,db=coffee_order_app,app=[unknown],client=10.210.125.188,LOG:  connection authorized: user=coffee_order_app_user database=coffee_order_app application_name=psql SSL enabled (protocol=TLSv1.3, cipher=TLS_AES_256_GCM_SHA384, bits=256)
+[6810f454.d88-4] user=coffee_order_app_user,db=coffee_order_app,app=psql,client=10.210.125.188,LOG:  disconnection: session time: 0:00:00.080 user=coffee_order_app_user database=coffee_order_app host=10.210.125.188 port=38452
+[6810e699.82-23] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-24] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.001 s, total=0.015 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=240 kB; lsn=0/1C61628, redo lsn=0/1C615F0
+[6810e699.82-25] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-26] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.002 s, total=0.014 s; sync files=1, longest=0.002 s, average=0.002 s; distance=1 kB, estimate=216 kB; lsn=0/1C61AD0, redo lsn=0/1C61A98
+[6810e699.82-27] user=,db=,app=,client=,LOG:  checkpoint starting: time
+[6810e699.82-28] user=,db=,app=,client=,LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.014 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=195 kB; lsn=0/1C61F78, redo lsn=0/1C61F40
