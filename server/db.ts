@@ -1,7 +1,7 @@
-// กลับไปใช้ neondatabase/serverless แต่ไม่ใช้ WebSocket
-// เพื่อความเข้ากันได้กับ drizzle-orm ที่มีอยู่
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+// ใช้ pg package สำหรับการเชื่อมต่อฐานข้อมูลโดยตรงบน Render.com
+// และใช้ drizzle-orm/node-postgres สำหรับทำงานกับ pg Pool
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
 // ไม่ใช้ WebSocket ทั้งหมดเพื่อหลีกเลี่ยงปัญหาบน Render.com
