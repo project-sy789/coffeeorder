@@ -1,34 +1,18 @@
 /**
- * ไฟล์นี้เป็นเครื่องมือสำหรับการแก้ไขปัญหาฐานข้อมูลบน Render.com
- * 
- * คำแนะนำ:
- * 1. ตั้งค่า environment variables ที่จำเป็นบน Render.com dashboard:
- *   - DATABASE_URL: เป็น internal connection string จาก PostgreSQL service
- *   - RENDER_DB_FIX_MODE: ตั้งเป็น "true" เพื่อเปิดใช้งานการแก้ไขปัญหา
- * 
- * 2. ถ้าใช้ Render internal database URL ให้ใช้รูปแบบนี้:
- *   - postgresql://[username]:[password]@[host-internal]:[port]/[database]
- * 
- * 3. รันคำสั่งนี้เพื่อทดสอบการเชื่อมต่อฐานข้อมูล:
- *   - node server/render-troubleshoot.js
+ * ไฟล์นี้เป็นเครื่องมือแก้ไขปัญหาฐานข้อมูลบน Render.com
+ * ใช้รูปแบบ CommonJS เพื่อความเข้ากันได้กับเซิร์ฟเวอร์ที่ไม่รองรับ ES Modules
  */
 
-// Import dependencies - ใช้ ES modules format
-import { Pool } from '@neondatabase/serverless';
-import * as dotenv from 'dotenv';
+const { Pool } = require('pg');
 
-// โหลด .env ถ้าไม่ใช่บน production
-if (process.env.NODE_ENV !== 'production') {
-  dotenv.config();
-}
-
+// โหลด environment variables
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error('กรุณาตั้งค่า DATABASE_URL ใน environment variables');
   process.exit(1);
 }
 
-console.log('⚡ เครื่องมือทดสอบการเชื่อมต่อฐานข้อมูลบน Render.com');
+console.log('⚡ เครื่องมือแก้ไขปัญหาฐานข้อมูลบน Render.com');
 console.log('-----------------------------------------------------');
 
 // ตรวจสอบว่าเป็น Render.com environment หรือไม่
@@ -111,7 +95,7 @@ async function testConnection() {
         
         // เพิ่มข้อมูลลงในตาราง
         await client.query(`
-          INSERT INTO render_test (name) VALUES ('ทดสอบจาก render-troubleshoot.js')
+          INSERT INTO render_test (name) VALUES ('ทดสอบจาก render-fix.js')
         `);
         console.log('✅ เพิ่มข้อมูลทดสอบสำเร็จ');
         
@@ -124,15 +108,16 @@ async function testConnection() {
       }
     }
     
-    await client.end();
+    await client.release();
+    await pool.end();
     console.log('\n✨ ทดสอบการเชื่อมต่อฐานข้อมูลสำเร็จ!');
     
-    // คำแนะนำและขั้นตอนต่อไป
-    console.log('\nคำแนะนำ:');
-    console.log('1. ตั้งค่า DATABASE_URL ใน Render.com dashboard ให้เป็น connection string ที่ทำงานได้');
-    console.log('2. ถ้าใช้ Render internal database ให้ตั้งค่า ssl: false ในการเชื่อมต่อ');
-    console.log('3. ลดจำนวน connection pool size เพื่อไม่ให้ใช้ทรัพยากรมากเกินไป');
-    console.log('4. เพิ่มระบบ fallback ไปยัง memory storage เมื่อฐานข้อมูลไม่ตอบสนอง');
+    // คำแนะนำต่อไป
+    console.log('\nคำแนะนำในการแก้ไขปัญหา:');
+    console.log('1. แก้ไข server/db.ts ให้ใช้การตั้งค่าเดียวกันนี้');
+    console.log('2. ในโค้ดของคุณ ให้กำหนดค่า ssl: false ถ้าใช้ internal database');
+    console.log('3. ตั้งค่า max: 3 เพื่อไม่ให้ใช้ connection มากเกินไป');
+    console.log('4. หลีกเลี่ยงการใช้ WebSocket สำหรับ PostgreSQL บน Render');
     
     return true;
   } catch (error) {
@@ -141,19 +126,14 @@ async function testConnection() {
     // แสดงคำแนะนำในการแก้ไขปัญหา
     console.log('\nวิธีแก้ปัญหา:');
     if (isInternalDb) {
-      console.log('1. ตรวจสอบว่า DATABASE_URL ถูกต้องและเป็น internal connection string');
-      console.log('2. ตรวจสอบว่าบริการ PostgreSQL บน Render.com กำลังทำงานอยู่');
-      console.log('3. ลองตั้งค่า ssl: false ในการเชื่อมต่อเพราะ internal connections ไม่ต้องใช้ SSL');
+      console.log('1. ตรวจสอบว่า DATABASE_URL เป็น internal connection string');
+      console.log('2. ตั้งค่า ssl: false สำหรับ internal connection');
+      console.log('3. ตรวจสอบว่าบริการ PostgreSQL บน Render ทำงานอยู่');
+      console.log('4. ลองใช้ pg แทน @neondatabase/serverless');
     } else {
-      console.log('1. ตรวจสอบว่า DATABASE_URL ถูกต้อง');
-      console.log('2. ตรวจสอบว่าฐานข้อมูลภายนอกอนุญาตการเชื่อมต่อจาก Render.com');
-      console.log('3. ตรวจสอบการตั้งค่า SSL - ฐานข้อมูลภายนอกมักต้องการ SSL');
-      console.log('4. ลองใช้ Render internal database แทนเพื่อหลีกเลี่ยงปัญหาการเชื่อมต่อ');
+      console.log('1. ลองใช้ Render internal database แทน');
+      console.log('2. ลองเปลี่ยนไปใช้ pg แทน @neondatabase/serverless');
     }
-    
-    console.log('\nทางเลือกอื่น:');
-    console.log('- ใช้ memory storage สำหรับการพัฒนาหรือทดสอบ');
-    console.log('- ลองใช้ฐานข้อมูลจาก provider อื่น เช่น Railway หรือ ElephantSQL');
     
     return false;
   }
