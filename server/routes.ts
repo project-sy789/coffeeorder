@@ -48,6 +48,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
+  
+  // API สำหรับอัปโหลดโลโก้
+  app.post('/api/upload-logo', async (req, res) => {
+    try {
+      const { logo } = req.body;
+      
+      if (!logo) {
+        return res.status(400).json({ message: "ไม่พบข้อมูลโลโก้" });
+      }
+      
+      // ตรวจสอบว่าเป็น base64 หรือไม่
+      if (!logo.startsWith('data:image/')) {
+        return res.status(400).json({ message: "รูปแบบไฟล์ไม่ถูกต้อง ต้องเป็น base64 เท่านั้น" });
+      }
+      
+      // แยกข้อมูล base64 ออกจากส่วนหัว
+      const base64Data = logo.split(';base64,').pop();
+      
+      // แปลง base64 เป็น buffer
+      const imageBuffer = Buffer.from(base64Data || '', 'base64');
+      
+      // บันทึกไฟล์ในโฟลเดอร์ public
+      const fs = require('fs');
+      const path = require('path');
+      
+      // บันทึกในโฟลเดอร์ public ที่รากของโปรเจค
+      fs.writeFileSync(path.join(process.cwd(), 'public', 'logo.png'), imageBuffer);
+      
+      // และบันทึกในโฟลเดอร์ client/public เพื่อให้ใช้ได้ในระหว่างการพัฒนา
+      const clientPublicPath = path.join(process.cwd(), 'client', 'public');
+      if (fs.existsSync(clientPublicPath)) {
+        fs.writeFileSync(path.join(clientPublicPath, 'logo.png'), imageBuffer);
+      }
+      
+      // สร้าง favicon.ico จาก logo.png ด้วย (ทำเป็น favicon.png แทนเพราะไม่มี library แปลง ico)
+      fs.writeFileSync(path.join(process.cwd(), 'public', 'favicon.png'), imageBuffer);
+      
+      res.status(200).json({ message: "อัปโหลดโลโก้สำเร็จ" });
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดในการอัปโหลดโลโก้" });
+    }
+  });
 
   // API สำหรับสร้างผู้ใช้แอดมินโดยเฉพาะ
   app.get('/api/setup-admin', async (req, res) => {

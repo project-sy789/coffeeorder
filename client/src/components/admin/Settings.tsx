@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,11 +14,12 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, QrCode, Smartphone, CreditCard, CheckCircle, Wallet, Building, Ban, 
-  Store, Palette, Clock, PauseCircle, XCircle, CheckCircle2, AlarmClock
+  Store, Palette, Clock, PauseCircle, XCircle, CheckCircle2, AlarmClock, Upload, Image
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { queryClient } from '@/lib/queryClient';
 import { generateQRCode } from '@/lib/qrcode';
+import { Logo } from '@/components/ui/logo';
 
 // Helper function to get friendly name for PromptPay type
 function getPromptPayTypeName(type: string): string {
@@ -67,7 +68,8 @@ const storeInfoSchema = z.object({
   store_theme: z.string().min(1, 'กรุณาเลือกธีม'),
   store_status: z.string().min(1, 'กรุณาเลือกสถานะร้าน'),
   phone_number: z.string().regex(/^0\d{9}$/, 'เบอร์โทรศัพท์ไม่ถูกต้อง ต้องเป็นเบอร์ 10 หลักขึ้นต้นด้วย 0'),
-  address: z.string().min(1, 'ที่อยู่ต้องไม่ว่างเปล่า').max(200, 'ที่อยู่ต้องไม่เกิน 200 ตัวอักษร')
+  address: z.string().min(1, 'ที่อยู่ต้องไม่ว่างเปล่า').max(200, 'ที่อยู่ต้องไม่เกิน 200 ตัวอักษร'),
+  custom_logo: z.string().optional(),
 });
 
 type PromptPayFormValues = z.infer<typeof promptPaySchema>;
@@ -94,6 +96,8 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<string>("store");
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
   const [showQrPreview, setShowQrPreview] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeData, setThemeData] = useState<{
     primary: string;
     variant: string;
@@ -163,11 +167,17 @@ export default function Settings() {
         const storeStatus = await fetchSetting('store_status');
         const phoneNumber = await fetchSetting('phone_number');
         const address = await fetchSetting('address');
+        const customLogo = await fetchSetting('custom_logo');
+        
+        // ตั้งค่า logo preview ถ้ามีการตั้งค่าไว้
+        if (customLogo) {
+          setLogoPreview(customLogo);
+        }
 
         // Set PromptPay form values
         form.reset({
           promptpay_id: promptpayId || '',
-          promptpay_type: (promptpayType as 'phone' | 'national_id' | 'bank_account' | 'ewallet') || 'phone',
+          promptpay_type: (promptpayType === 'phone' || promptpayType === 'national_id' ? promptpayType : 'phone') as 'phone' | 'national_id',
         });
 
         // Set Store Info form values
@@ -177,6 +187,7 @@ export default function Settings() {
           store_status: storeStatus || 'open',
           phone_number: phoneNumber || '',
           address: address || '',
+          custom_logo: customLogo || '',
         });
       } catch (error) {
         console.error('Error fetching settings:', error);
@@ -194,7 +205,7 @@ export default function Settings() {
     setIsLoading(true);
     try {
       // Update all store settings
-      await Promise.all([
+      const settingsPromises = [
         apiRequest('POST', '/api/settings', { 
           key: 'store_name', 
           value: data.store_name, 
@@ -220,7 +231,27 @@ export default function Settings() {
           value: data.address, 
           description: 'Store address' 
         }),
-      ]);
+      ];
+      
+      // Add custom logo setting if it exists
+      if (data.custom_logo) {
+        settingsPromises.push(
+          apiRequest('POST', '/api/settings', { 
+            key: 'custom_logo', 
+            value: data.custom_logo, 
+            description: 'Custom logo image (base64)' 
+          })
+        );
+        
+        // Also save logo to public directory via API
+        settingsPromises.push(
+          apiRequest('POST', '/api/upload-logo', { 
+            logo: data.custom_logo
+          })
+        );
+      }
+      
+      await Promise.all(settingsPromises);
       
       // Update the theme in the theme.json file
       const selectedOption = themeOptions.find(option => option.value === data.store_theme);
@@ -244,6 +275,13 @@ export default function Settings() {
       // Invalidate any related queries
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/theme'] });
+      
+      // Reload the page to show the new logo
+      if (data.custom_logo) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error saving store settings:', error);
       toast({
@@ -409,6 +447,78 @@ export default function Settings() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Logo Upload Section */}
+                  <div className="border p-4 rounded-lg mt-4">
+                    <div className="text-base font-medium mb-2">โลโก้ร้าน</div>
+                    <div className="text-sm text-muted-foreground mb-4">
+                      เปลี่ยนโลโก้ร้านที่จะแสดงในแอปพลิเคชัน (แนะนำขนาด 512x512 พิกเซล)
+                    </div>
+                    
+                    <div className="flex items-center space-x-4">
+                      <div className="border rounded-md overflow-hidden w-24 h-24 flex items-center justify-center bg-gray-50">
+                        {logoPreview ? (
+                          <img 
+                            src={logoPreview} 
+                            alt="ตัวอย่างโลโก้" 
+                            className="w-full h-full object-contain" 
+                          />
+                        ) : (
+                          <Logo size="lg" />
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isLoading}
+                          className="flex items-center"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          เลือกไฟล์โลโก้
+                        </Button>
+                        <input 
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              // Create preview URL
+                              const url = URL.createObjectURL(file);
+                              setLogoPreview(url);
+                              
+                              // Convert to base64 for storage
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                const base64 = reader.result as string;
+                                storeForm.setValue('custom_logo', base64);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        {logoPreview && (
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            onClick={() => {
+                              setLogoPreview(null);
+                              storeForm.setValue('custom_logo', '');
+                            }}
+                            disabled={isLoading}
+                            size="sm"
+                            className="text-destructive"
+                          >
+                            ลบรูปภาพ
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   <FormField
                     control={storeForm.control}
