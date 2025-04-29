@@ -1,0 +1,56 @@
+ vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+computing gzip size...
+
+../dist/public/index.html                     2.41 kB │ gzip:   1.13 kB
+
+../dist/public/assets/index-B-MuHz46.js   1,327.17 kB │ gzip: 374.51 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 9.71s
+
+
+  dist/index.js  52.7kb
+
+⚡ Done in 5ms
+
+[6/6] RUN npm run build
+[auth] sharing credentials for asia-southeast1.registry.rlwy.net
+Build time: 32.44 seconds
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/3b0ac8a7-4949-45be-b51f-bc5ca583b54e/vol_ls0b4v4a3280fp43
+
+> rest-express@1.0.0 start
+
+8:16:21 AM [express] serving on port 5000
+
+====================
+Starting Healthcheck
+====================
+
+Path: /
+Retry window: 3m0s
+
+Attempt #1 failed with service unavailable. Continuing to retry for 2m49s
+Attempt #2 failed with service unavailable. Continuing to retry for 2m37s
+Attempt #3 failed with service unavailable. Continuing to retry for 2m24s
+Attempt #4 failed with service unavailable. Continuing to retry for 2m10s
+Attempt #5 failed with service unavailable. Continuing to retry for 1m51s
+Attempt #6 failed with service unavailable. Continuing to retry for 1m24s
+Attempt #7 failed with service unavailable. Continuing to retry for 44s
+Deploy failed
+เกิดข้อผิดพลาด: Command failed: railway up
+เกิดข้อผิดพลาดในการ Deploy
+
+=== พบปัญหาระหว่างการดำเนินการ ===
+คุณสามารถลองใหม่อีกครั้งหรือเลือกแพลตฟอร์มอื่น
+jamies@MacBook-Pro-khxng-Jamies CoffeeOrderMaster-railway % 

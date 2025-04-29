@@ -1,0 +1,48 @@
+Instance created. Preparing to start...
+Starting download for registry01.prod.koyeb.com/k-6e620b4b-a4a4-4b29-b342-661b9fe20e2e/d0d40818-414f-48ae-81f4-4542df325a1c:31a1225e-84b8-45ed-a624-649c2c6c7edd
+Download progress:   0% |[32m[0m--------| (1.5 KiB/s)
+Download progress:   0% |[32m[0m--------| (325.0 B/s)
+Download complete for registry01.prod.koyeb.com/k-6e620b4b-a4a4-4b29-b342-661b9fe20e2e/d0d40818-414f-48ae-81f4-4542df325a1c:31a1225e-84b8-45ed-a624-649c2c6c7edd
+
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.js
+
+9:12:12 AM [express] serving on port 5000
+Instance is starting... Waiting for health checks to pass.
+TCP health check failed on port 8000.
+
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.js
+
+9:13:27 AM [express] serving on port 5000
+TCP health check failed on port 8000.
+npm error path /workspace
+npm error command failed
+npm error signal SIGTERM
+npm error command sh -c NODE_ENV=production node dist/index.js
+npm error A complete log of this run can be found in: /tmp/npm_cache/_logs/2025-04-29T09_13_26_388Z-debug-0.log
+Instance stopped.
+Instance created. Preparing to start...
+Starting download for registry01.prod.koyeb.com/k-6e620b4b-a4a4-4b29-b342-661b9fe20e2e/d0d40818-414f-48ae-81f4-4542df325a1c:31a1225e-84b8-45ed-a624-649c2c6c7edd
+Download progress:   0% |[32m[0m--------| (1.4 KiB/s)
+Download progress:   0% |[32m[0m--------| (316.0 B/s)
+Download complete for registry01.prod.koyeb.com/k-6e620b4b-a4a4-4b29-b342-661b9fe20e2e/d0d40818-414f-48ae-81f4-4542df325a1c:31a1225e-84b8-45ed-a624-649c2c6c7edd
+
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.js
+
+9:15:05 AM [express] serving on port 5000
+Instance is starting... Waiting for health checks to pass.
+TCP health check failed on port 8000.
+npm error path /workspace
+npm error command failed
+npm error signal SIGTERM
+npm error command sh -c NODE_ENV=production node dist/index.js
+npm error A complete log of this run can be found in: /tmp/npm_cache/_logs/2025-04-29T09_15_04_769Z-debug-0.log
+
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.js
+
+9:16:21 AM [express] serving on port 5000
+TCP health check failed on port 8000.
+Instance stopped.
