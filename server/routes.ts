@@ -49,6 +49,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
   
+  // API สำหรับการเข้าสู่ระบบ
+  app.post('/api/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน" });
+      }
+      
+      // ค้นหาผู้ใช้จากฐานข้อมูล
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user) {
+        return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
+      }
+      
+      // เตรียมข้อมูลรหัสผ่านที่เข้ารหัสและ salt
+      const [hashedPassword, salt] = user.password.split('.');
+      
+      // แปลง buffer ของรหัสผ่านที่เข้ารหัสแล้ว
+      const hashedPasswordBuf = Buffer.from(hashedPassword, 'hex');
+      
+      // คำนวณ hash ของรหัสผ่านที่ผู้ใช้ป้อนด้วย salt เดียวกัน
+      const suppliedPasswordBuf = await scryptAsync(password, salt, 64) as Buffer;
+      
+      // เปรียบเทียบรหัสผ่านแบบปลอดภัย
+      const passwordsMatch = timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+      
+      if (!passwordsMatch) {
+        return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
+      }
+      
+      // ตรวจสอบสถานะของผู้ใช้ (ถ้ามี)
+      if (user.active === false) {
+        return res.status(401).json({ error: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ" });
+      }
+      
+      // สร้างข้อมูลสำหรับส่งกลับ (ไม่รวมรหัสผ่าน)
+      const { password: _, ...userData } = user;
+      
+      // เก็บข้อมูลผู้ใช้ใน session หรือส่งคืน token (ขึ้นอยู่กับวิธีการรักษาความปลอดภัยที่คุณใช้)
+      res.status(200).json(userData);
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง" });
+    }
+  });
+  
   // API สำหรับอัปโหลดโลโก้
   app.post('/api/upload-logo', async (req, res) => {
     try {
@@ -95,6 +143,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API สำหรับสร้างผู้ใช้แอดมินโดยเฉพาะ
   app.get('/api/setup-admin', async (req, res) => {
     try {
+      // ตรวจสอบ Secret Key (ถ้ามีการตั้งค่า)
+      const secret_key = req.query.secret_key as string;
+      
+      // ถ้ามีการตั้งค่า ADMIN_RESET_SECRET ในระบบ จะต้องส่ง secret_key มาตรงกัน
+      if (process.env.ADMIN_RESET_SECRET) {
+        if (!secret_key || secret_key !== process.env.ADMIN_RESET_SECRET) {
+          console.log('Secret key validation failed on setup-admin');
+          return res.status(403).json({
+            error: "ไม่มีสิทธิ์เข้าถึง API นี้",
+            requiresSecretKey: true
+          });
+        }
+        console.log('Secret key validated successfully on setup-admin');
+      }
+    
       // ตรวจสอบว่ามีผู้ใช้แอดมินอยู่แล้วหรือไม่
       const existingAdmins = await storage.getUsersByRole('admin');
       
@@ -136,10 +199,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // API สำหรับรีเซ็ตผู้ใช้แอดมินในกรณีมีปัญหา (สำหรับใช้แก้ไขปัญหาหลังการ deploy)
   // เพิ่มการป้องกันด้วย Secret Key
-  app.post('/api/force-reset-admin', async (req, res) => {
+  app.all('/api/force-reset-admin', async (req, res) => {
     try {
-      // ตรวจสอบ Secret Key
-      const { secret_key } = req.body;
+      // ตรวจสอบ Secret Key จากหลายแหล่ง (body, query, headers)
+      const bodySecretKey = req.body?.secret_key;
+      const querySecretKey = req.query?.secret_key;
+      const secret_key = bodySecretKey || querySecretKey;
       
       console.log('ADMIN_RESET_SECRET:', process.env.ADMIN_RESET_SECRET);
       console.log('Secret key from request:', secret_key);
