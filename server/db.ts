@@ -1,37 +1,34 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
 import * as schema from "@shared/schema";
 
-// ตั้งค่า WebSocket constructor ถ้ามีการใช้ ws
-try {
-  // ตั้งค่า Neon config สำหรับเชื่อมต่อฐานข้อมูล
-  if (ws) {
-    console.log("Using WebSocket from ws package");
-    neonConfig.webSocketConstructor = ws;
-  } else {
-    console.log("No WebSocket constructor available");
-    process.env.USE_MEMORY_STORAGE = 'true';
-  }
-} catch (error) {
-  console.error("Error setting up WebSocket:", error);
-  process.env.USE_MEMORY_STORAGE = 'true';
-}
+// ไม่ใช้ WebSocket ทั้งหมดเพื่อหลีกเลี่ยงปัญหาบน Render.com
+// เนื่องจาก Neon PostgreSQL และ Render.com ไม่สามารถทำงานร่วมกันได้ดีในสภาพแวดล้อม serverless
+console.log("Direct connection mode for Neon database");
 
-// สร้างฟังก์ชันแบบง่ายกว่าเพื่อลดการใช้งานของ Neon เพื่อหลีกเลี่ยงปัญหา
+// ข้ามการใช้ WebSocket และสร้างการเชื่อมต่อโดยตรงกับ Postgres
+// การเชื่อมต่อแบบนี้จะทำงานได้ดีกว่าบน Render.com
 const createDirectPool = (connectionString: string) => {
   try {
-    // พยายามใช้การเชื่อมต่อแบบตรงที่เป็นมิตรกับ Render และ deployment platforms อื่นๆ 
-    return new Pool({ 
+    // ใช้การเชื่อมต่อโดยตรงทุกครั้ง ไม่ใช้ WebSocket
+    const config = { 
       connectionString,
-      // ปิดใช้งาน SSL ชั่วคราวเพื่อแก้ปัญหาการเชื่อมต่อบน Render
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      ssl: { rejectUnauthorized: false }, // จำเป็นสำหรับ Render
       connectionTimeoutMillis: 30000,
-      max: 10,
-      idleTimeoutMillis: 30000
-    });
+      max: 5, // จำนวนการเชื่อมต่อพร้อมกันน้อยลงเพื่อลดโอกาสเกิดปัญหา
+      idleTimeoutMillis: 10000, // ปิดการเชื่อมต่อที่ไม่ได้ใช้งานเร็วขึ้น
+      allowExitOnIdle: true
+    };
+    
+    // แสดงข้อมูลการเชื่อมต่อโดยไม่เปิดเผยข้อมูลล็อกอิน
+    try {
+      const url = new URL(connectionString);
+      console.log(`Connecting to PostgreSQL at ${url.hostname}`);
+    } catch (e) {
+      console.log("Invalid connection string format");
+    }
+    
+    return new Pool(config);
   } catch (error) {
     console.error("Error creating pool:", error);
     process.env.USE_MEMORY_STORAGE = 'true';
@@ -94,25 +91,25 @@ async function testConnection(pool: Pool): Promise<boolean> {
 try {
   console.log("Attempting to connect to database...");
 
-  // สร้างการเชื่อมต่อฐานข้อมูลที่เหมาะสมกับสภาพแวดล้อม
-  // ในสภาพแวดล้อม Render.com จะใช้การเชื่อมต่อโดยตรงแทน WebSocket
-  if (isProduction) {
-    if (process.env.RENDER || process.env.RENDER_INTERNAL_HOSTNAME) {
-      console.log("Running in Render.com environment - using direct connection");
-      // สร้างการเชื่อมต่อแบบตรงสำหรับ Render.com
-      const renderConfig = {
-        ...connectionConfig,
-        ssl: { rejectUnauthorized: false } // จำเป็นสำหรับ Render.com
-      };
-      pool = new Pool(renderConfig);
-    } else {
-      // ถ้าไม่ได้อยู่บน Render.com ใช้การเชื่อมต่อปกติ
-      pool = new Pool(connectionConfig);
-    }
-  } else {
-    // สภาพแวดล้อม development
-    pool = new Pool(connectionConfig);
+  // สร้างการเชื่อมต่อแบบโดยตรงโดยไม่ใช้ WebSocket เพื่อหลีกเลี่ยงปัญหาบน Render.com
+  console.log("Creating direct database connection pool without WebSocket");
+  
+  // กำหนดค่าการเชื่อมต่อสำหรับสภาพแวดล้อม production/Render.com
+  const productionConfig = {
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+    max: 5, // จำกัดจำนวนการเชื่อมต่อในสภาพแวดล้อม production
+    idleTimeoutMillis: 10000, // ปิดการเชื่อมต่อเมื่อไม่ได้ใช้งานเร็วขึ้น
+    allowExitOnIdle: true
+  };
+  
+  // ใช้การตั้งค่าแบบเดียวกันในทุกสภาพแวดล้อมเพื่อหลีกเลี่ยงปัญหาความซับซ้อน
+  if (process.env.RENDER || process.env.RENDER_INTERNAL_HOSTNAME) {
+    console.log("Detected Render.com environment");
   }
+  
+  pool = createDirectPool(connectionString);
   
   // ตั้งค่า error handler เพื่อแสดงข้อผิดพลาดโดยละเอียด
   pool.on('error', (err) => {
