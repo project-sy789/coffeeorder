@@ -3,20 +3,53 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
+// ตั้งค่า WebSocket constructor ถ้ามีการใช้ ws
+try {
+  // ตั้งค่า Neon config สำหรับเชื่อมต่อฐานข้อมูล
+  if (ws) {
+    console.log("Using WebSocket from ws package");
+    neonConfig.webSocketConstructor = ws;
+  } else {
+    console.log("No WebSocket constructor available");
+    process.env.USE_MEMORY_STORAGE = 'true';
+  }
+} catch (error) {
+  console.error("Error setting up WebSocket:", error);
+  process.env.USE_MEMORY_STORAGE = 'true';
+}
+
 // สร้างฟังก์ชันแบบง่ายกว่าเพื่อลดการใช้งานของ Neon เพื่อหลีกเลี่ยงปัญหา
-// ไม่ใช้ WebSocket แบบเต็มรูปแบบเพื่อหลีกเลี่ยงปัญหา TypeError
 const createDirectPool = (connectionString: string) => {
-  // พยายามใช้ connection string โดยตรงแทนการใช้ WebSocket
-  return new Pool({ 
-    connectionString,
-    ssl: false,
-    connectionTimeoutMillis: 30000,
-    max: 10
-  });
+  try {
+    // พยายามใช้การเชื่อมต่อแบบตรงที่เป็นมิตรกับ Render และ deployment platforms อื่นๆ 
+    return new Pool({ 
+      connectionString,
+      // ปิดใช้งาน SSL ชั่วคราวเพื่อแก้ปัญหาการเชื่อมต่อบน Render
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      connectionTimeoutMillis: 30000,
+      max: 10,
+      idleTimeoutMillis: 30000
+    });
+  } catch (error) {
+    console.error("Error creating pool:", error);
+    process.env.USE_MEMORY_STORAGE = 'true';
+    
+    // ส่งคืน dummy pool ในกรณีที่มีข้อผิดพลาด
+    return new Pool({ 
+      connectionString: 'postgresql://localhost:5432/dummy',
+      ssl: false
+    });
+  }
 };
 
-// ตั้งค่าเพื่อทดสอบการใช้ memory storage
-process.env.USE_MEMORY_STORAGE = 'true';
+// ตรวจสอบสภาพแวดล้อมการทำงาน
+const isProduction = process.env.NODE_ENV === 'production';
+
+// ตั้งค่าการใช้ memory storage เป็นค่าเริ่มต้น
+// ถ้าอยู่ใน production จะพยายามเชื่อมต่อฐานข้อมูลก่อน
+process.env.USE_MEMORY_STORAGE = isProduction ? 'false' : 'true';
 
 // ตรวจสอบการตั้งค่าฐานข้อมูล
 if (!process.env.DATABASE_URL) {
@@ -60,7 +93,26 @@ async function testConnection(pool: Pool): Promise<boolean> {
 
 try {
   console.log("Attempting to connect to database...");
-  pool = new Pool(connectionConfig);
+
+  // สร้างการเชื่อมต่อฐานข้อมูลที่เหมาะสมกับสภาพแวดล้อม
+  // ในสภาพแวดล้อม Render.com จะใช้การเชื่อมต่อโดยตรงแทน WebSocket
+  if (isProduction) {
+    if (process.env.RENDER || process.env.RENDER_INTERNAL_HOSTNAME) {
+      console.log("Running in Render.com environment - using direct connection");
+      // สร้างการเชื่อมต่อแบบตรงสำหรับ Render.com
+      const renderConfig = {
+        ...connectionConfig,
+        ssl: { rejectUnauthorized: false } // จำเป็นสำหรับ Render.com
+      };
+      pool = new Pool(renderConfig);
+    } else {
+      // ถ้าไม่ได้อยู่บน Render.com ใช้การเชื่อมต่อปกติ
+      pool = new Pool(connectionConfig);
+    }
+  } else {
+    // สภาพแวดล้อม development
+    pool = new Pool(connectionConfig);
+  }
   
   // ตั้งค่า error handler เพื่อแสดงข้อผิดพลาดโดยละเอียด
   pool.on('error', (err) => {
@@ -74,6 +126,9 @@ try {
     } catch (e) {
       console.error('Invalid DATABASE_URL format');
     }
+    
+    // เมื่อเกิดข้อผิดพลาดให้เปลี่ยนไปใช้ Memory Storage
+    process.env.USE_MEMORY_STORAGE = 'true';
   });
 
   // ตั้งค่า Drizzle ORM
@@ -84,12 +139,16 @@ try {
     .then(success => {
       if (success) {
         console.log("Database connection verified successfully");
+        // กรณีที่เชื่อมต่อได้สำเร็จ ให้ใช้ฐานข้อมูลจริง
+        process.env.USE_MEMORY_STORAGE = 'false';
       } else {
         console.error("Database connection test failed - application may not work correctly");
+        process.env.USE_MEMORY_STORAGE = 'true';
       }
     })
     .catch(err => {
       console.error("Error testing database connection:", err);
+      process.env.USE_MEMORY_STORAGE = 'true';
     });
     
   console.log("Database connection initialized successfully");
