@@ -17,7 +17,7 @@ import {
   insertProductIngredientSchema,
   insertInventoryTransactionSchema,
 } from "@shared/schema";
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import promptpay from 'promptpay-qr';
 import QRCode from 'qrcode';
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -52,13 +52,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API สำหรับดึงข้อมูลธีม
   app.get('/api/theme', async (req, res) => {
     try {
+      // ดึงข้อมูลธีมจากฐานข้อมูล
       const themeSetting = await storage.getSetting('theme');
+      
+      // ถ้าไม่มีข้อมูลธีม ให้ส่ง null กลับไป เพื่อให้ client ใช้ค่าเริ่มต้นที่กำหนดไว้
       if (!themeSetting) {
-        return res.status(404).json({ error: 'ไม่พบข้อมูลธีม' });
+        console.log('Theme setting not found, returning null');
+        return res.status(200).json(null);
       }
+      
       // แปลงค่า JSON string เป็น object
-      const theme = JSON.parse(themeSetting.value);
-      return res.status(200).json(theme);
+      try {
+        const theme = JSON.parse(themeSetting.value);
+        return res.status(200).json(theme);
+      } catch (parseError) {
+        console.error('Error parsing theme JSON:', parseError);
+        return res.status(200).json(null);
+      }
     } catch (error) {
       console.error('Error fetching theme:', error);
       return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลธีม' });
@@ -357,11 +367,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add a simple database health check route
+  app.get('/api/db-health', async (req, res) => {
+    try {
+      const result = await storage.checkDatabaseConnection();
+      if (result.success) {
+        res.status(200).json({ status: 'ok', message: 'Database connection successful' });
+      } else {
+        res.status(503).json({ 
+          status: 'error', 
+          message: 'Database connection failed',
+          details: result.error
+        });
+      }
+    } catch (error) {
+      console.error('Error checking database health:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        message: 'Error checking database health'
+      });
+    }
+  });
+  
   // Add Global Error Handler
   app.use((err: any, req: Request, res: Response, next: any) => {
     console.error("Global error handler:", err);
+    
+    // ตรวจสอบว่าเป็น error ที่เกี่ยวกับฐานข้อมูลหรือไม่
+    const isDatabaseError = err.code && 
+      (err.code.startsWith('08') || // Class 08 - Connection Exception
+       err.code.startsWith('53') || // Class 53 - Insufficient Resources
+       err.code.startsWith('57') || // Class 57 - Operator Intervention
+       err.code === 'ECONNREFUSED' || 
+       err.code === 'ETIMEDOUT');
+    
+    if (isDatabaseError) {
+      return res.status(503).json({
+        error: "ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้ กรุณาลองใหม่ภายหลัง",
+        code: err.code,
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    }
+    
+    // จัดการ error อื่นๆ
     res.status(500).json({
       error: err.message || "เกิดข้อผิดพลาดที่เซิร์ฟเวอร์",
+      details: process.env.NODE_ENV === 'development' ? (err.stack || err.toString()) : undefined
     });
   });
 

@@ -15,6 +15,9 @@ import connectPg from "connect-pg-simple";
 import { pool } from './db';
 
 export interface IStorage {
+  // Database Connection
+  checkDatabaseConnection(): Promise<{ success: boolean; error?: string }>;
+  
   // Settings
   getSettings(): Promise<Setting[]>;
   getSetting(key: string): Promise<Setting | undefined>;
@@ -130,6 +133,11 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  async checkDatabaseConnection(): Promise<{ success: boolean; error?: string }> {
+    // สำหรับ in-memory storage เราจะถือว่าสำเร็จเสมอ
+    return { success: true };
+  }
+  
   async createOrUpdateSetting(key: string, value: string, description: string | null = null): Promise<Setting> {
     // ตรวจสอบว่ามีการตั้งค่านี้อยู่แล้วหรือไม่
     const existingSetting = await this.getSetting(key);
@@ -1468,5 +1476,10 @@ import { DatabaseStorage } from './databaseStorage';
 // Create a PostgreSQL session store
 const PostgresSessionStore = connectPg(session);
 
-// Use DatabaseStorage for persistent storage in PostgreSQL
-export const storage = new DatabaseStorage();
+// ตรวจสอบว่ามีตัวแปรแวดล้อม USE_MEMORY_STORAGE หรือ DATABASE_CONNECTION_ERROR ที่กำหนดให้ใช้ memory storage หรือไม่
+// หรือตรวจสอบว่ามีปัญหาการเชื่อมต่อฐานข้อมูลหรือไม่
+const useMemoryStorage = process.env.USE_MEMORY_STORAGE === 'true' || process.env.DATABASE_CONNECTION_ERROR === 'true';
+
+// ใช้ MemStorage สำหรับการทดสอบหรือเมื่อมีปัญหาการเชื่อมต่อฐานข้อมูล
+// หรือใช้ DatabaseStorage สำหรับเก็บข้อมูลถาวรใน PostgreSQL
+export const storage = useMemoryStorage ? new MemStorage() : new DatabaseStorage();

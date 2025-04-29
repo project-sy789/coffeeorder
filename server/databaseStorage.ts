@@ -32,6 +32,22 @@ import * as bcrypt from 'bcrypt';
  */
 export class DatabaseStorage implements IStorage {
   
+  // ===== Database Connection =====
+  
+  async checkDatabaseConnection(): Promise<{ success: boolean; error?: string }> {
+    try {
+      // ทดสอบการเชื่อมต่อโดยดึงข้อมูลง่ายๆ
+      await db.select({ value: sql`1` }).limit(1);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Database connection check failed:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Unknown database error'
+      };
+    }
+  }
+  
   // ===== Users =====
   
   async getUsers(): Promise<User[]> {
