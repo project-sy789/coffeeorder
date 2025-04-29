@@ -5,8 +5,12 @@
  * แก้ไขปัญหา import แบบ namespace ที่ไม่สามารถใช้งานกับ Firebase Functions ได้
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ฟังก์ชันสำหรับแสดงข้อความในคอนโซล
 function log(message, color = 'reset') {
