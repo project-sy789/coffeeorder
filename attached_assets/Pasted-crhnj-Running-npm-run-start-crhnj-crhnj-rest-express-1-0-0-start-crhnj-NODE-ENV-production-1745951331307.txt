@@ -1,0 +1,178 @@
+crhnj
+==> Running 'npm run start'
+crhnj
+crhnj
+> rest-express@1.0.0 start
+crhnj
+> NODE_ENV=production node dist/index.js
+crhnj
+crhnj
+node:internal/modules/esm/resolve:314
+crhnj
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+crhnj
+         ^
+crhnj
+crhnj
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './pg-pool' is not defined by "exports" in /opt/render/project/src/node_modules/drizzle-orm/package.json imported from /opt/render/project/src/dist/index.js
+crhnj
+    at exportsNotFound (node:internal/modules/esm/resolve:314:10)
+crhnj
+    at packageExportsResolve (node:internal/modules/esm/resolve:661:9)
+crhnj
+    at packageResolve (node:internal/modules/esm/resolve:774:12)
+crhnj
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+crhnj
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+crhnj
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+crhnj
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+crhnj
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+crhnj
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+crhnj
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+crhnj
+  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+crhnj
+}
+crhnj
+crhnj
+Node.js v22.14.0
+     ==> Exited with status 1
+     ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+crhnj
+==> Running 'npm run start'
+crhnj
+crhnj
+> rest-express@1.0.0 start
+crhnj
+> NODE_ENV=production node dist/index.js
+crhnj
+crhnj
+node:internal/modules/esm/resolve:314
+crhnj
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+crhnj
+         ^
+crhnj
+crhnj
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './pg-pool' is not defined by "exports" in /opt/render/project/src/node_modules/drizzle-orm/package.json imported from /opt/render/project/src/dist/index.js
+crhnj
+    at exportsNotFound (node:internal/modules/esm/resolve:314:10)
+crhnj
+    at packageExportsResolve (node:internal/modules/esm/resolve:661:9)
+crhnj
+    at packageResolve (node:internal/modules/esm/resolve:774:12)
+crhnj
+    at moduleResolve (node:internal/modules/esm/resolve:854:18)
+crhnj
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+crhnj
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+crhnj
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+crhnj
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+crhnj
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+crhnj
+    at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+crhnj
+  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+crhnj
+}
+crhnj
+crhnj
+Node.js v22.14.0
+5j798
+Error fetching setting: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 460570.006471
+5j798
+}
+5j798
+6:27:40 PM [express] GET /api/settings/store_name 500 in 11ms :: {"error":"เกิดข้อผิดพลาดในการดึงข้อ…
+5j798
+Error fetching theme: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 460606.22055
+5j798
+}
+5j798
+6:27:40 PM [express] GET /api/theme 500 in 6ms :: {"error":"เกิดข้อผิดพลาดในการดึงข้อมูลธีม"}
+5j798
+Error fetching setting value: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 460607.590856
+5j798
+}
+5j798
+6:27:40 PM [express] GET /api/settings/value/store_name 500 in 5ms :: {"error":"เกิดข้อผิดพลาดในการด…
+5j798
+6:27:40 PM [express] GET /api/products 200 in 2ms
+5j798
+6:27:40 PM [express] GET /api/customization-options 200 in 1ms
+5j798
+Error fetching setting value: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 460803.735985
+5j798
+}
+5j798
+6:27:40 PM [express] GET /api/settings/value/store_name 500 in 3ms :: {"error":"เกิดข้อผิดพลาดในการด…
+5j798
+Error fetching setting value: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 461685.660565
+5j798
+}
+5j798
+6:27:41 PM [express] GET /api/settings/value/store_name 500 in 4ms :: {"error":"เกิดข้อผิดพลาดในการด…
+5j798
+Error fetching setting: ErrorEvent {
+5j798
+  type: 'error',
+5j798
+  defaultPrevented: false,
+5j798
+  cancelable: false,
+5j798
+  timeStamp: 462567.488289
+5j798
+}
+5j798
+6:27:42 PM [express] GET /api/settings/store_name 500 in 4ms :: {"error":"เกิดข้อผิดพลาดในการดึงข้อม…
