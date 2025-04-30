@@ -1,4 +1,0 @@
-#!/usr/bin/env node
-
-// เรียกใช้สคริปต์ Firebase deployment
-require('./simple-deploy-firebase.js');

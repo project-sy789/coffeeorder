@@ -1,4 +1,0 @@
-#!/usr/bin/env node
-
-// เรียกใช้สคริปต์ Railway deployment
-require('./simple-deploy-railway.js');

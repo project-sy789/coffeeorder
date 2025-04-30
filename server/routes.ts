@@ -22,6 +22,8 @@ import promptpay from 'promptpay-qr';
 import QRCode from 'qrcode';
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+// @ts-ignore
+import installRouter from './routes/install.js';
 
 const scryptAsync = promisify(scrypt);
 
@@ -44,6 +46,9 @@ function formatCurrency(amount: number): string {
 let activeConnections: WebSocket[] = [];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ลงทะเบียน Router สำหรับระบบติดตั้ง
+  app.use('/api/install', installRouter);
+  
   // Add a simple health check route
   app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
