@@ -129,9 +129,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Add a simple health check route
+  // API สำหรับตรวจสอบสถานะเซิร์ฟเวอร์
   app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+  
+  // API สำหรับตรวจสอบสถานะการเชื่อมต่อฐานข้อมูล
+  app.get('/api/db-health', async (req, res) => {
+    try {
+      // ตรวจสอบการเชื่อมต่อฐานข้อมูล
+      const dbCheck = await storage.checkDatabaseConnection();
+      
+      if (dbCheck.success) {
+        return res.status(200).json({ status: 'ok', message: 'Database connection successful' });
+      } else {
+        return res.status(500).json({ 
+          status: 'error', 
+          message: dbCheck.error || 'Database connection failed' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Error checking database health:', error);
+      return res.status(500).json({ 
+        status: 'error', 
+        message: error.message || 'Database connection check failed' 
+      });
+    }
   });
   
   // API สำหรับดึงข้อมูลธีม
