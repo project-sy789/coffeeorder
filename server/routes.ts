@@ -22,8 +22,10 @@ import promptpay from 'promptpay-qr';
 import QRCode from 'qrcode';
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-// @ts-ignore
-import installRouter from './routes/install.js';
+// เรียกใช้ Express Router สำหรับระบบติดตั้ง
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
 
 const scryptAsync = promisify(scrypt);
 
@@ -31,6 +33,35 @@ async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  try {
+    // ตรวจสอบรูปแบบรหัสผ่านที่ถูกต้อง
+    if (!stored || !stored.includes('.')) {
+      console.error('รูปแบบรหัสผ่านที่จัดเก็บไม่ถูกต้อง');
+      return false;
+    }
+    
+    const [hashed, salt] = stored.split(".");
+    if (!hashed || !salt) {
+      console.error('รูปแบบรหัสผ่านไม่ถูกต้อง: ไม่มี hash หรือ salt');
+      return false;
+    }
+    
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    
+    if (hashedBuf.length !== suppliedBuf.length) {
+      console.error(`ความยาวบัฟเฟอร์ไม่ตรงกัน: ${hashedBuf.length} vs ${suppliedBuf.length}`);
+      return false;
+    }
+    
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    return false;
+  }
 }
 
 function formatCurrency(amount: number): string {
@@ -46,8 +77,57 @@ function formatCurrency(amount: number): string {
 let activeConnections: WebSocket[] = [];
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // ลงทะเบียน Router สำหรับระบบติดตั้ง
-  app.use('/api/install', installRouter);
+  // สร้าง Router สำหรับระบบติดตั้งและแก้ไขปัญหา
+  const installRouter = express.Router();
+  
+  // หน้าติดตั้งหลัก
+  app.get('/install', (req, res) => {
+    // ส่งไฟล์ HTML หน้าติดตั้ง
+    res.sendFile(path.join(process.cwd(), 'public/install/index.html'));
+  });
+  
+  // หน้าแก้ไขปัญหาการเข้าสู่ระบบ
+  app.get('/auth-fix', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'public/auth-fix/index.html'));
+  });
+  
+  // API สำหรับแก้ไขปัญหาการเข้าสู่ระบบ
+  app.post('/api/fix-login-error', async (req, res) => {
+    try {
+      // ดึงข้อมูลผู้ใช้ทั้งหมด
+      const users = await storage.getUsers();
+      let fixedCount = 0;
+      
+      for (const user of users) {
+        // ตรวจสอบรูปแบบรหัสผ่าน
+        const passwordParts = user.password.split('.');
+        
+        // หากรหัสผ่านไม่ได้อยู่ในรูปแบบ hash.salt
+        if (passwordParts.length !== 2) {
+          // สร้างรหัสผ่านใหม่ด้วยค่าเริ่มต้น (admin123)
+          const salt = randomBytes(16).toString("hex");
+          const passwordBuffer = await scryptAsync('admin123', salt, 64);
+          const hashedPassword = `${passwordBuffer.toString('hex')}.${salt}`;
+          
+          // อัพเดตรหัสผ่าน
+          await storage.updateUser(user.id, { password: hashedPassword });
+          fixedCount++;
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `แก้ไขปัญหาการเข้าสู่ระบบสำเร็จ ${fixedCount} บัญชี`,
+        fixedCount
+      });
+    } catch (error: any) {
+      console.error('Fix login error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `เกิดข้อผิดพลาด: ${error.message}` 
+      });
+    }
+  });
   
   // Add a simple health check route
   app.get('/api/health', (req, res) => {
@@ -150,17 +230,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
       }
       
-      // เตรียมข้อมูลรหัสผ่านที่เข้ารหัสและ salt
-      const [hashedPassword, salt] = user.password.split('.');
-      
-      // แปลง buffer ของรหัสผ่านที่เข้ารหัสแล้ว
-      const hashedPasswordBuf = Buffer.from(hashedPassword, 'hex');
-      
-      // คำนวณ hash ของรหัสผ่านที่ผู้ใช้ป้อนด้วย salt เดียวกัน
-      const suppliedPasswordBuf = await scryptAsync(password, salt, 64) as Buffer;
-      
-      // เปรียบเทียบรหัสผ่านแบบปลอดภัย
-      const passwordsMatch = timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+      // ใช้ฟังก์ชัน comparePasswords ที่รองรับการตรวจสอบข้อผิดพลาด
+      const passwordsMatch = await comparePasswords(password, user.password);
       
       if (!passwordsMatch) {
         return res.status(401).json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });

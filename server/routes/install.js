@@ -1,300 +1,365 @@
 /**
- * Route สำหรับระบบติดตั้งอัตโนมัติ
+ * ระบบติดตั้งผ่านเว็บสำหรับแอปพลิเคชัน POS คาเฟ่
  */
-import { Router } from 'express';
-import bcrypt from 'bcrypt';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { db } from '../db.js';
-import * as schema from '../../shared/schema.js';
-import { sql } from 'drizzle-orm';
+const express = require('express');
+const router = express.Router();
+const { pool, createDbConnection } = require('../db');
+const { storage } = require('../storage');
+const fs = require('fs');
+const path = require('path');
+const { scrypt, randomBytes } = require('crypto');
+const { promisify } = require('util');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-import { dirname } from 'path';
+const scryptAsync = promisify(scrypt);
 
-const router = Router();
+// หน้าติดตั้งหลัก
+router.get('/', (req, res) => {
+  // ส่งไฟล์ HTML หน้าติดตั้ง
+  res.sendFile(path.join(__dirname, '../../public/install/index.html'));
+});
 
-// ป้องกันการติดตั้งซ้ำ ถ้ามีไฟล์ config.json อยู่แล้ว
-const isInstalled = () => {
-  const configPath = path.join(process.cwd(), 'config.json');
-  return fs.existsSync(configPath);
-};
-
-/**
- * ตรวจสอบเงื่อนไขการติดตั้ง
- */
-router.get('/check', (req, res) => {
+// ตรวจสอบการเชื่อมต่อฐานข้อมูล
+router.post('/check-database', async (req, res) => {
   try {
-    const systemInfo = {
-      node: process.version,
-      npm: process.env.npm_package_version || 'ไม่ทราบ',
-      postgres: true, // สมมติว่ามี PostgreSQL
-      writePermission: true,
-      isInstalled: isInstalled()
-    };
+    const { host, port, database, username, password } = req.body;
     
-    res.json({
-      success: true,
-      systemInfo
-    });
+    // สร้าง connection string
+    const connectionString = `postgres://${username}:${password}@${host}:${port}/${database}`;
+    
+    // ทดสอบการเชื่อมต่อ
+    const testConnection = await createDbConnection(connectionString, true);
+    
+    if (testConnection.success) {
+      res.json({ success: true, message: 'เชื่อมต่อฐานข้อมูลสำเร็จ' });
+    } else {
+      res.status(400).json({ success: false, message: testConnection.error || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' });
+    }
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('Database connection test error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
   }
 });
 
-/**
- * ทดสอบการเชื่อมต่อฐานข้อมูล
- */
-router.post('/test-db', async (req, res) => {
+// บันทึกการตั้งค่าฐานข้อมูล
+router.post('/save-database-config', async (req, res) => {
   try {
-    const { type, host, port, name, user, password, url } = req.body;
+    const { host, port, database, username, password } = req.body;
     
-    let connectionString;
-    if (type === 'direct') {
-      connectionString = `postgresql://${user}:${password}@${host}:${port}/${name}`;
-    } else {
-      connectionString = url;
+    // สร้าง connection string
+    const connectionString = `postgres://${username}:${password}@${host}:${port}/${database}`;
+    
+    // ทดสอบการเชื่อมต่อก่อนบันทึก
+    const testConnection = await createDbConnection(connectionString, true);
+    
+    if (!testConnection.success) {
+      return res.status(400).json({ 
+        success: false, 
+        message: testConnection.error || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' 
+      });
     }
     
-    // ทดสอบการเชื่อมต่อฐานข้อมูล
-    const Pool = (await import('pg')).Pool;
-    const pool = new Pool({ connectionString });
+    // อ่านไฟล์ .env.example
+    let envContent = fs.readFileSync(path.join(__dirname, '../../.env.example'), 'utf8');
     
+    // แทนที่ค่า DATABASE_URL
+    envContent = envContent.replace(/DATABASE_URL=.*/, `DATABASE_URL=${connectionString}`);
+    
+    // บันทึกไฟล์ .env.local
+    fs.writeFileSync(path.join(__dirname, '../../.env.local'), envContent);
+    
+    // ตั้งค่า environment variable ในรันไทม์
+    process.env.DATABASE_URL = connectionString;
+    
+    res.json({ success: true, message: 'บันทึกการตั้งค่าฐานข้อมูลสำเร็จ' });
+  } catch (error) {
+    console.error('Save database config error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+// สร้างโครงสร้างฐานข้อมูล
+router.post('/setup-database', async (req, res) => {
+  try {
+    // ตรวจสอบว่ามีการตั้งค่าฐานข้อมูลหรือไม่
+    if (!process.env.DATABASE_URL) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ยังไม่ได้ตั้งค่าฐานข้อมูล กรุณาตั้งค่าฐานข้อมูลก่อน' 
+      });
+    }
+    
+    // สร้างตาราง (จะทำโดยอัตโนมัติเมื่อเรียกใช้ storage)
+    const dbCheck = await storage.checkDatabaseConnection();
+    
+    if (!dbCheck.success) {
+      return res.status(500).json({ 
+        success: false, 
+        message: `ไม่สามารถเชื่อมต่อฐานข้อมูล: ${dbCheck.error}` 
+      });
+    }
+    
+    res.json({ success: true, message: 'สร้างโครงสร้างฐานข้อมูลสำเร็จ' });
+  } catch (error) {
+    console.error('Setup database error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+// บันทึกข้อมูลร้านและสร้างผู้ดูแลระบบ
+router.post('/setup-store', async (req, res) => {
+  try {
+    const { storeName, adminUsername, adminPassword, adminName } = req.body;
+    
+    // บันทึกข้อมูลร้าน
+    await storage.createOrUpdateSetting('store_name', storeName, 'ชื่อร้าน');
+    await storage.createOrUpdateSetting('store_status', 'open', 'สถานะร้าน (open/closed)');
+    
+    // ตรวจสอบว่ามีผู้ดูแลระบบอยู่แล้วหรือไม่
+    const existingAdmin = await storage.getUserByUsername(adminUsername);
+    
+    if (existingAdmin) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว กรุณาใช้ชื่อผู้ใช้อื่น' 
+      });
+    }
+    
+    // สร้างรหัสผ่านแบบเข้ารหัส
+    const salt = randomBytes(16).toString('hex');
+    const passwordBuffer = await scryptAsync(adminPassword, salt, 64);
+    const hashedPassword = `${passwordBuffer.toString('hex')}.${salt}`;
+    
+    // สร้างผู้ดูแลระบบ
+    const admin = await storage.createUser({
+      username: adminUsername,
+      password: hashedPassword,
+      name: adminName,
+      role: 'admin',
+      active: true
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'ตั้งค่าร้านและสร้างผู้ดูแลระบบสำเร็จ',
+      admin: {
+        id: admin.id,
+        username: admin.username,
+        name: admin.name,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    console.error('Setup store error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+// ตรวจสอบสถานะการติดตั้ง
+router.get('/status', async (req, res) => {
+  try {
+    // ตรวจสอบว่ามี .env.local หรือไม่
+    const envLocalExists = fs.existsSync(path.join(__dirname, '../../.env.local'));
+    
+    // ตรวจสอบการเชื่อมต่อฐานข้อมูล
+    let databaseConnected = false;
     try {
-      const client = await pool.connect();
-      const result = await client.query('SELECT NOW() as time');
-      client.release();
-      await pool.end();
-      
-      res.json({
-        success: true,
-        time: result.rows[0].time
-      });
+      const dbCheck = await storage.checkDatabaseConnection();
+      databaseConnected = dbCheck.success;
     } catch (error) {
-      res.status(400).json({
-        success: false,
-        error: error.message
-      });
-    }
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
- * ติดตั้งระบบ
- */
-router.post('/', async (req, res) => {
-  // ตรวจสอบว่าติดตั้งแล้วหรือยัง
-  if (isInstalled()) {
-    return res.status(400).json({
-      success: false,
-      error: 'ระบบถูกติดตั้งแล้ว'
-    });
-  }
-  
-  try {
-    const { database, store, admin } = req.body;
-    
-    // 1. ตั้งค่าการเชื่อมต่อฐานข้อมูล
-    let connectionString;
-    if (database.type === 'direct') {
-      connectionString = `postgresql://${database.user}:${database.password}@${database.host}:${database.port}/${database.name}`;
-    } else {
-      connectionString = database.url;
+      console.error('Database check error:', error);
     }
     
-    // 2. บันทึกการตั้งค่าในไฟล์ config.json
-    const config = {
-      database: {
-        url: connectionString,
-        type: database.type
-      },
-      store: {
-        name: store.name,
-        phone: store.phone,
-        address: store.address,
-        openTime: store.openTime,
-        closeTime: store.closeTime
-      },
-      installed: true,
-      installedAt: new Date().toISOString()
-    };
+    // ตรวจสอบว่ามีผู้ดูแลระบบหรือไม่
+    let adminExists = false;
+    let storeName = null;
     
-    // บันทึกไฟล์ config.json
-    const configPath = path.join(process.cwd(), 'config.json');
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    
-    // 3. สร้างตารางในฐานข้อมูล (ถ้าเลือกสร้างตารางอัตโนมัติ)
-    if (database.createTables) {
-      // สร้างการเชื่อมต่อและตาราง
-      // ในที่นี้สมมติว่าใช้ Drizzle ในการสร้างตาราง
+    if (databaseConnected) {
       try {
-        // Import โมดูลที่จำเป็น
-        const { Pool } = await import('pg');
-        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const admins = await storage.getUsersByRole('admin');
+        adminExists = admins && admins.length > 0;
         
-        // สร้างตารางทั้งหมด
-        const pool = new Pool({ connectionString });
-        const db = drizzle(pool, { schema });
-        
-        // สร้างตารางทั้งหมดจาก schema
-        await db.execute(sql`
-          -- สร้างตารางผู้ใช้
-          CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL DEFAULT 'staff',
-            name VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางการตั้งค่า
-          CREATE TABLE IF NOT EXISTS settings (
-            id SERIAL PRIMARY KEY,
-            key VARCHAR(255) NOT NULL UNIQUE,
-            value TEXT,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางหมวดหมู่สินค้า
-          CREATE TABLE IF NOT EXISTS categories (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT,
-            image TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางสินค้า
-          CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT,
-            price DECIMAL(10, 2) NOT NULL,
-            image TEXT,
-            category_id INTEGER REFERENCES categories(id),
-            is_available BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางตัวเลือกการปรับแต่ง
-          CREATE TABLE IF NOT EXISTS customization_options (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            type VARCHAR(50) NOT NULL,
-            options JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางลูกค้า
-          CREATE TABLE IF NOT EXISTS customers (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255),
-            phone VARCHAR(20),
-            email VARCHAR(255),
-            points INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางออเดอร์
-          CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            total DECIMAL(10, 2) NOT NULL,
-            status VARCHAR(50) DEFAULT 'pending',
-            payment_method VARCHAR(50),
-            payment_status VARCHAR(50) DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          -- สร้างตารางรายการในออเดอร์
-          CREATE TABLE IF NOT EXISTS order_items (
-            id SERIAL PRIMARY KEY,
-            order_id INTEGER REFERENCES orders(id),
-            product_id INTEGER REFERENCES products(id),
-            quantity INTEGER NOT NULL,
-            price DECIMAL(10, 2) NOT NULL,
-            customizations JSONB,
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-        
-        // เพิ่มข้อมูลเริ่มต้น
-        
-        // 1. เพิ่มการตั้งค่าร้าน
-        await db.execute(sql`
-          INSERT INTO settings (key, value, description)
-          VALUES 
-            ('store_name', ${store.name}, 'ชื่อร้าน'),
-            ('store_phone', ${store.phone || ''}, 'หมายเลขโทรศัพท์'),
-            ('store_address', ${store.address || ''}, 'ที่อยู่ร้าน'),
-            ('store_open_time', ${store.openTime || '08:00'}, 'เวลาเปิด'),
-            ('store_close_time', ${store.closeTime || '20:00'}, 'เวลาปิด'),
-            ('store_status', 'open', 'สถานะร้าน (open/closed)')
-          ON CONFLICT (key) DO UPDATE
-          SET value = EXCLUDED.value, description = EXCLUDED.description
-        `);
-        
-        // 2. เพิ่มผู้ใช้ admin
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(admin.password, saltRounds);
-        
-        await db.execute(sql`
-          INSERT INTO users (username, password, role, name)
-          VALUES (${admin.username}, ${hashedPassword}, 'admin', ${admin.name})
-          ON CONFLICT (username) DO UPDATE
-          SET password = ${hashedPassword}, name = ${admin.name}
-        `);
-        
-        // ปิดการเชื่อมต่อ
-        await pool.end();
-        
+        // ดึงชื่อร้าน
+        const storeNameSetting = await storage.getSetting('store_name');
+        storeName = storeNameSetting ? storeNameSetting.value : null;
       } catch (error) {
-        console.error('Error creating tables:', error);
-        throw new Error(`ไม่สามารถสร้างตารางได้: ${error.message}`);
+        console.error('Admin check error:', error);
       }
     }
     
-    // 4. อัปเดตไฟล์ .env
-    try {
-      const envContent = `DATABASE_URL="${connectionString}"\nSTORE_NAME="${store.name}"\n`;
-      fs.writeFileSync(path.join(process.cwd(), '.env.local'), envContent);
-    } catch (error) {
-      console.warn('Warning: Could not update .env.local file', error);
-    }
-    
-    // 5. ส่งผลลัพธ์กลับไป
     res.json({
       success: true,
-      message: 'ติดตั้งระบบสำเร็จ',
-      config: {
-        storeName: store.name,
-        adminUsername: admin.username
+      status: {
+        configExists: envLocalExists,
+        databaseConnected,
+        adminExists,
+        storeName,
+        installationComplete: envLocalExists && databaseConnected && adminExists
       }
     });
-    
   } catch (error) {
-    console.error('Installation error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('Installation status check error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
   }
 });
 
-export default router;
+// ตรวจสอบข้อกำหนดของระบบ
+router.get('/requirements', (req, res) => {
+  try {
+    // ตรวจสอบเวอร์ชัน Node.js
+    const nodeVersion = process.version;
+    const nodeVersionNumber = parseFloat(nodeVersion.replace('v', ''));
+    const nodeVersionOk = nodeVersionNumber >= 16.0;
+    
+    // ตรวจสอบการเข้าถึงไฟล์
+    let filePermissionsOk = true;
+    try {
+      // ทดสอบการเขียนไฟล์ชั่วคราว
+      const testFile = path.join(__dirname, '../../.test-write-permission');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+    } catch (error) {
+      filePermissionsOk = false;
+    }
+    
+    res.json({
+      success: true,
+      requirements: {
+        node: {
+          version: nodeVersion,
+          required: '>= v16.0.0',
+          satisfied: nodeVersionOk
+        },
+        filePermissions: {
+          description: 'สามารถเขียนไฟล์ได้',
+          satisfied: filePermissionsOk
+        },
+        allSatisfied: nodeVersionOk && filePermissionsOk
+      }
+    });
+  } catch (error) {
+    console.error('Requirements check error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+// สร้างตัวอย่างสินค้า (optional)
+router.post('/create-sample-data', async (req, res) => {
+  try {
+    // สร้างหมวดหมู่
+    await storage.addCategory('กาแฟ');
+    await storage.addCategory('ชา');
+    await storage.addCategory('เบเกอรี่');
+    
+    // สร้างตัวเลือกการปรับแต่ง
+    await storage.createCustomizationOption({
+      name: 'หวานน้อย',
+      type: 'ความหวาน',
+      price: 0
+    });
+    
+    await storage.createCustomizationOption({
+      name: 'หวานปกติ',
+      type: 'ความหวาน',
+      price: 0
+    });
+    
+    await storage.createCustomizationOption({
+      name: 'หวานมาก',
+      type: 'ความหวาน',
+      price: 0
+    });
+    
+    await storage.createCustomizationOption({
+      name: 'ไม่ใส่นม',
+      type: 'นม',
+      price: 0
+    });
+    
+    await storage.createCustomizationOption({
+      name: 'นมสด',
+      type: 'นม',
+      price: 0
+    });
+    
+    await storage.createCustomizationOption({
+      name: 'นมข้น',
+      type: 'นม',
+      price: 5
+    });
+    
+    // สร้างสินค้าตัวอย่าง
+    await storage.createProduct({
+      name: 'เอสเพรสโซ่',
+      price: 45,
+      category: 'กาแฟ',
+      available: true,
+      image: null
+    });
+    
+    await storage.createProduct({
+      name: 'ลาเต้',
+      price: 55,
+      category: 'กาแฟ',
+      available: true,
+      image: null
+    });
+    
+    await storage.createProduct({
+      name: 'ชาเขียว',
+      price: 50,
+      category: 'ชา',
+      available: true,
+      image: null
+    });
+    
+    await storage.createProduct({
+      name: 'ครัวซองค์',
+      price: 65,
+      category: 'เบเกอรี่',
+      available: true,
+      image: null
+    });
+    
+    res.json({ success: true, message: 'สร้างข้อมูลตัวอย่างสำเร็จ' });
+  } catch (error) {
+    console.error('Create sample data error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+// แก้ไขปัญหาการเข้าสู่ระบบ (RangeError: Input buffers must have the same byte length)
+router.post('/fix-login-error', async (req, res) => {
+  try {
+    // ดึงข้อมูลผู้ใช้ทั้งหมด
+    const users = await storage.getUsers();
+    let fixedCount = 0;
+    
+    for (const user of users) {
+      // ตรวจสอบรูปแบบรหัสผ่าน
+      const passwordParts = user.password.split('.');
+      
+      // หากรหัสผ่านไม่ได้อยู่ในรูปแบบ hash.salt
+      if (passwordParts.length !== 2) {
+        // สร้างรหัสผ่านใหม่ด้วยค่าเริ่มต้น (admin123)
+        const salt = randomBytes(16).toString('hex');
+        const passwordBuffer = await scryptAsync('admin123', salt, 64);
+        const hashedPassword = `${passwordBuffer.toString('hex')}.${salt}`;
+        
+        // อัพเดตรหัสผ่าน
+        await storage.updateUser(user.id, { password: hashedPassword });
+        fixedCount++;
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `แก้ไขปัญหาการเข้าสู่ระบบสำเร็จ ${fixedCount} บัญชี`,
+      fixedCount
+    });
+  } catch (error) {
+    console.error('Fix login error:', error);
+    res.status(500).json({ success: false, message: `เกิดข้อผิดพลาด: ${error.message}` });
+  }
+});
+
+module.exports = router;
