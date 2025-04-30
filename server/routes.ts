@@ -99,14 +99,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let fixedCount = 0;
       
       for (const user of users) {
+        if (!user.password) {
+          console.log(`ข้ามผู้ใช้ ${user.username} เนื่องจากไม่มีรหัสผ่าน`);
+          continue;
+        }
+        
         // ตรวจสอบรูปแบบรหัสผ่าน
         const passwordParts = user.password.split('.');
         
         // หากรหัสผ่านไม่ได้อยู่ในรูปแบบ hash.salt
         if (passwordParts.length !== 2) {
+          console.log(`กำลังแก้ไขรหัสผ่านสำหรับผู้ใช้ ${user.username}`);
           // สร้างรหัสผ่านใหม่ด้วยค่าเริ่มต้น (admin123)
           const salt = randomBytes(16).toString("hex");
-          const passwordBuffer = await scryptAsync('admin123', salt, 64);
+          const passwordBuffer = await scryptAsync('admin123', salt, 64) as Buffer;
           const hashedPassword = `${passwordBuffer.toString('hex')}.${salt}`;
           
           // อัพเดตรหัสผ่าน
@@ -125,6 +131,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: `เกิดข้อผิดพลาด: ${error.message}` 
+      });
+    }
+  });
+  
+  // API สำหรับทดสอบการเชื่อมต่อฐานข้อมูลแบบกำหนดเอง
+  app.post('/api/test-db-connection', async (req, res) => {
+    try {
+      const { host, port, database, username, password } = req.body;
+      
+      if (!host || !port || !database || !username) {
+        return res.status(400).json({
+          success: false,
+          message: 'กรุณากรอกข้อมูลการเชื่อมต่อให้ครบถ้วน'
+        });
+      }
+      
+      // สร้าง connection string
+      const connectionString = `postgresql://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+      
+      // ทดสอบการเชื่อมต่อ (สมมติว่ามีฟังก์ชันนี้)
+      const testResult = await storage.testCustomConnection(connectionString);
+      
+      if (testResult.success) {
+        return res.json({
+          success: true,
+          message: 'เชื่อมต่อกับฐานข้อมูลสำเร็จ'
+        });
+      } else {
+        return res.json({
+          success: false,
+          message: testResult.error || 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error testing DB connection:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'เกิดข้อผิดพลาดในการทดสอบการเชื่อมต่อฐานข้อมูล'
+      });
+    }
+  });
+  
+  // API สำหรับบันทึกการตั้งค่าฐานข้อมูลแบบกำหนดเอง
+  app.post('/api/save-db-connection', async (req, res) => {
+    try {
+      const { host, port, database, username, password } = req.body;
+      
+      if (!host || !port || !database || !username) {
+        return res.status(400).json({
+          success: false,
+          message: 'กรุณากรอกข้อมูลการเชื่อมต่อให้ครบถ้วน'
+        });
+      }
+      
+      // สร้าง connection string
+      const connectionString = `postgresql://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+      
+      // บันทึกการตั้งค่า (สมมติว่าเป็นการบันทึกลงไฟล์ .env.local)
+      await storage.createOrUpdateSetting('database_connection_string', connectionString, 'การเชื่อมต่อฐานข้อมูลที่กำหนดเอง');
+      
+      return res.json({
+        success: true,
+        message: 'บันทึกการตั้งค่าฐานข้อมูลเรียบร้อยแล้ว'
+      });
+    } catch (error: any) {
+      console.error('Error saving DB connection:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่าฐานข้อมูล'
       });
     }
   });

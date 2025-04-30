@@ -423,9 +423,13 @@
       }
 
       // Setup event listeners
+      // เพิ่ม event listeners สำหรับปุ่มหลัก
       document.getElementById('check-requirements').addEventListener('click', checkRequirements);
       document.getElementById('go-to-step2').addEventListener('click', () => showStep(2));
-      document.getElementById('back-to-step1').addEventListener('click', () => showStep(1));
+      
+      // เพิ่ม event listeners สำหรับปุ่มย้อนกลับของทั้งสองรูปแบบ
+      document.getElementById('back-to-step1-hosted').addEventListener('click', () => showStep(1));
+      document.getElementById('back-to-step1-custom').addEventListener('click', () => showStep(1));
       document.getElementById('back-to-step2').addEventListener('click', () => showStep(2));
       // ตัวเลือกแพลตฟอร์ม: Render/Railway หรือ Custom
       document.querySelectorAll('input[name="platform"]').forEach(radio => {
