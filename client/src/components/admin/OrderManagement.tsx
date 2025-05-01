@@ -1,9 +1,16 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { type Order, type OrderWithItems, type User, type Member } from "@shared/schema";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { io, Socket } from "socket.io-client";
+import { 
+  useSocketOrderDetails,
+  useSocketUsers,
+  useSocketMembers,
+  useSocketQuery,
+  useSocketMutation
+} from "@/hooks/useSocketQuery";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -36,35 +43,78 @@ export default function OrderManagement() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [staffMap, setStaffMap] = useState<Record<number, string>>({});
   const [memberMap, setMemberMap] = useState<Record<number, string>>({});
+  const socketRef = useRef<Socket | null>(null);
+  const queryClient = useQueryClient();
   
   const { toast } = useToast();
 
-  // Fetch all orders with refetch capability
-  const { data: orders = [], isLoading: isLoadingOrders, refetch: refetchOrders } = useQuery({
-    queryKey: ['/api/orders'],
-    select: (data: Order[]) => data.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    ),
-  });
+  // Fetch all orders ด้วย Socket.IO
+  const { data: orders = [], isLoading: isLoadingOrders } = useSocketQuery<Order[]>(
+    'getOrders',
+    {},
+    {
+      select: (data: Order[]) => {
+        if (!Array.isArray(data)) {
+          console.error('Orders data is not an array:', data);
+          return [];
+        }
+        return data.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      }
+    }
+  );
 
-  // Fetch all users
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ['/api/users'],
-  });
+  // Fetch all users ด้วย Socket.IO
+  const { data: users = [] } = useSocketUsers<User[]>();
 
-  // Fetch all members
-  const { data: members = [] } = useQuery<Member[]>({
-    queryKey: ['/api/members'],
-  });
+  // Fetch all members ด้วย Socket.IO
+  const { data: members = [] } = useSocketMembers<Member[]>();
 
-  // Fetch order details when viewing a specific order
-  const { data: orderDetails, isLoading: isLoadingDetails } = useQuery<OrderWithItems>({
-    queryKey: [`/api/orders/${selectedOrder}`],
-    enabled: !!selectedOrder,
-  });
+  // Fetch order details when viewing a specific order ด้วย Socket.IO
+  const { data: orderDetails, isLoading: isLoadingDetails } = useSocketOrderDetails<OrderWithItems>(
+    selectedOrder || 0,
+    !!selectedOrder
+  );
+  
+  // เชื่อมต่อกับ Socket.IO server
+  useEffect(() => {
+    // สร้าง socket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const socket = io(`${window.location.protocol}//${host}`);
+    socketRef.current = socket;
+    
+    // ลงทะเบียนเป็น staff หรือ admin
+    socket.emit('register', { role: 'admin' });
+    
+    // รับการแจ้งเตือนเมื่อมีการอัพเดตข้อมูล
+    socket.on('orderStatusUpdated', () => {
+      // อัพเดตข้อมูลออร์เดอร์อัตโนมัติเมื่อมีการเปลี่ยนแปลง
+      // ใช้ socketKey แทนการใช้ API queryKey
+      queryClient.invalidateQueries({ queryKey: ['getOrders'] });
+    });
+    
+    socket.on('newOrderNotification', (data) => {
+      // แสดงการแจ้งเตือนเมื่อมีออร์เดอร์ใหม่
+      toast({
+        title: "มีออร์เดอร์ใหม่",
+        description: `ออร์เดอร์ #${data.order.id || data.order.orderCode} เข้ามาในระบบ`,
+      });
+      // อัพเดตข้อมูลออร์เดอร์อัตโนมัติ
+      queryClient.invalidateQueries({ queryKey: ['getOrders'] });
+    });
+    
+    // ทำความสะอาดเมื่อ component unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, [queryClient, toast]); // เพิ่ม dependencies ที่จำเป็น
   
   // Generate maps of staff and member names when data is loaded
   useEffect(() => {
+    if (!users.length || !members.length) return; // ป้องกันการทำงานเมื่อข้อมูลยังไม่พร้อม
+    
     // Create staff name map
     const staffNameMap: Record<number, string> = {};
     users.forEach(user => {
@@ -79,6 +129,13 @@ export default function OrderManagement() {
     });
     setMemberMap(memberNameMap);
   }, [users, members]);
+  
+  // แสดงข้อมูลการดึงข้อมูลรายละเอียดออเดอร์และ orderDetails
+  useEffect(() => {
+    console.log('selectedOrder:', selectedOrder);
+    console.log('orderDetails:', orderDetails);
+    console.log('isLoadingDetails:', isLoadingDetails);
+  }, [selectedOrder, orderDetails, isLoadingDetails]);
 
   // Filter orders by status and search query
   const filteredOrders = orders.filter(order => {
@@ -92,6 +149,7 @@ export default function OrderManagement() {
 
   // Handle viewing order details
   const handleViewOrder = (orderId: number) => {
+    console.log('Viewing order details for orderId:', orderId); // เพิ่ม log เพื่อตรวจสอบ
     setSelectedOrder(orderId);
     setIsViewDialogOpen(true);
   };
@@ -132,23 +190,30 @@ export default function OrderManagement() {
     }
   };
 
+  // ใช้ Socket.IO Mutation สำหรับการอัพเดทสถานะออเดอร์
+  const updateOrderStatusMutation = useSocketMutation<
+    { orderId: number; status: string; note?: string }, 
+    { success: boolean; message: string }
+  >('updateOrderStatus');
+  
   // Handle updating order status
   const handleUpdateStatus = async (orderId: number, newStatus: string) => {
     try {
-      // เปลี่ยนจาก PATCH เป็น PUT ตามที่กำหนดใน API endpoint
-      const response = await apiRequest("PUT", `/api/orders/${orderId}/status`, { 
+      // ส่งคำสั่งอัพเดทสถานะผ่าน Socket.IO
+      const result = await updateOrderStatusMutation.mutateAsync({ 
+        orderId, 
         status: newStatus,
-        // กรณียกเลิกออร์เดอร์ ให้ส่ง cancel reason ด้วย
-        cancelReason: newStatus === 'cancelled' ? 'ยกเลิกโดยพนักงาน' : undefined
+        note: newStatus === 'cancelled' ? 'ยกเลิกโดยพนักงาน' : undefined
       });
       
-      // ดึงข้อมูลใหม่แทนการรีเฟรชหน้า
-      await refetchOrders();
-      
-      toast({
-        title: "อัปเดตสถานะสำเร็จ",
-        description: `อัปเดตสถานะคำสั่งซื้อ #${orderId} เรียบร้อยแล้ว`,
-      });
+      if (result && result.success) {
+        toast({
+          title: "อัปเดตสถานะสำเร็จ",
+          description: `อัปเดตสถานะคำสั่งซื้อ #${orderId} เรียบร้อยแล้ว`,
+        });
+      } else {
+        throw new Error(result?.message || "ไม่สามารถอัปเดตสถานะคำสั่งซื้อได้");
+      }
     } catch (error) {
       console.error("Error updating order status:", error);
       toast({

@@ -284,7 +284,7 @@
             </div>
             <div class="d-flex justify-content-center gap-3">
               <a href="/" class="btn btn-primary">ไปยังหน้าหลัก</a>
-              <a href="/auth" class="btn btn-success">ไปยังหน้าเข้าสู่ระบบ</a>
+              <a href="/login" class="btn btn-success">ไปยังหน้าเข้าสู่ระบบ</a>
             </div>
           </div>
         </div>
@@ -621,18 +621,44 @@
         const adminPassword = document.getElementById('adminPassword').value;
         const createSampleData = document.getElementById('createSampleData').checked;
 
-        // Pretend to save store and admin information
-        setTimeout(() => {
-          // Update login info in the success step
-          document.getElementById('admin-username').textContent = adminUsername;
-          document.getElementById('admin-password').textContent = adminPassword;
-
-          resultContainer.classList.remove('alert-info', 'alert-danger');
-          resultContainer.classList.add('alert-success');
-          resultContainer.textContent = 'บันทึกข้อมูลร้านและผู้ดูแลระบบเรียบร้อยแล้ว';
-          storeConfigured = true;
-          setTimeout(() => showStep(4), 1000);
-        }, 1500);
+        // ส่งข้อมูลไปยัง API เพื่อติดตั้งระบบ
+        fetch('/api/install', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            storeName: storeName,
+            username: adminUsername,
+            password: adminPassword,
+            installDemoData: createSampleData
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Update login info in the success step
+            document.getElementById('admin-username').textContent = adminUsername;
+            document.getElementById('admin-password').textContent = adminPassword;
+            
+            resultContainer.classList.remove('alert-info', 'alert-danger');
+            resultContainer.classList.add('alert-success');
+            resultContainer.textContent = 'บันทึกข้อมูลร้านและผู้ดูแลระบบเรียบร้อยแล้ว' + 
+              (createSampleData ? ' พร้อมข้อมูลตัวอย่าง' : '');
+            
+            storeConfigured = true;
+            setTimeout(() => showStep(4), 1000);
+          } else {
+            resultContainer.classList.remove('alert-info', 'alert-success');
+            resultContainer.classList.add('alert-danger');
+            resultContainer.textContent = `ไม่สามารถติดตั้งระบบได้: ${data.message}`;
+          }
+        })
+        .catch(error => {
+          resultContainer.classList.remove('alert-info', 'alert-success');
+          resultContainer.classList.add('alert-danger');
+          resultContainer.textContent = `เกิดข้อผิดพลาด: ${error.message}`;
+        });
       });
 
       // Start the installation process

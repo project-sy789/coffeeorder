@@ -17,6 +17,7 @@ import { pool } from './db';
 export interface IStorage {
   // Database Connection
   checkDatabaseConnection(): Promise<{ success: boolean; error?: string }>;
+  testCustomConnection?(connectionString: string): Promise<{ success: boolean; error?: string }>;
   
   // Settings
   getSettings(): Promise<Setting[]>;

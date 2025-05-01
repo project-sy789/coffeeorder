@@ -1,6 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useSocketAnalytics } from '@/hooks/useSocketQuery';
 import { 
   BarChart2, 
   AlertCircle, 
@@ -48,23 +47,15 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from '@/lib/utils';
 
 export default function InventoryAnalytics() {
-  // Low stock items query
-  const { data: lowStockItems = [], isLoading: isLoadingLowStock } = useQuery({
-    queryKey: ['/api/analytics/low-stock'],
-    queryFn: async () => {
-      const { data } = await apiRequest<any[]>('GET', '/api/analytics/low-stock');
-      return data || [];
-    }
-  });
+  // ใช้ Socket.IO สำหรับดึงข้อมูลสินค้าที่ใกล้หมด
+  const { data: lowStockItems = [], isLoading: isLoadingLowStock } = useSocketAnalytics<any[]>(
+    'low-stock'
+  );
   
-  // Product usage report query
-  const { data: productUsageReport = [], isLoading: isLoadingUsage } = useQuery({
-    queryKey: ['/api/analytics/product-usage'],
-    queryFn: async () => {
-      const { data } = await apiRequest<any[]>('GET', '/api/analytics/product-usage');
-      return data || [];
-    }
-  });
+  // ใช้ Socket.IO สำหรับดึงข้อมูลรายงานการใช้วัตถุดิบ
+  const { data: productUsageReport = [], isLoading: isLoadingUsage } = useSocketAnalytics<any[]>(
+    'product-usage'
+  );
   
   return (
     <div className="p-6">

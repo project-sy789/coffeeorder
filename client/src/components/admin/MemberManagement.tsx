@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { useSocketMembers, useSocketMutation } from "@/hooks/useSocketQuery";
 import { type Member, type InsertMember, insertMemberSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,92 +47,76 @@ export default function MemberManagement() {
   
   const { toast } = useToast();
 
-  // Fetch members
-  const { data: members = [], isLoading } = useQuery({
-    queryKey: ['/api/members'],
-    select: (data: Member[]) => data.sort((a, b) => 
+  // ใช้ Socket.IO สำหรับดึงข้อมูลสมาชิก
+  const { data: members = [], isLoading } = useSocketMembers<Member[]>({
+    select: (data) => data.sort((a, b) => 
       new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime()
     ),
   });
 
-  // Add member mutation
-  const addMemberMutation = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const { response, data: responseData } = await apiRequest("POST", "/api/members", data);
-      if (!response.ok) {
-        throw new Error(response.statusText || "ไม่สามารถเพิ่มสมาชิกได้");
+  // ใช้ Socket.IO สำหรับเพิ่มสมาชิก
+  const addMemberMutation = useSocketMutation<Member, FormValues>(
+    'createMember',
+    {
+      onSuccess: () => {
+        setIsAddDialogOpen(false);
+        toast({
+          title: "เพิ่มสมาชิกสำเร็จ",
+          description: "สมาชิกถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: error instanceof Error ? error.message : "ไม่สามารถเพิ่มสมาชิกได้",
+          variant: "destructive",
+        });
       }
-      return responseData;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/members'] });
-      setIsAddDialogOpen(false);
-      toast({
-        title: "เพิ่มสมาชิกสำเร็จ",
-        description: "สมาชิกถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถเพิ่มสมาชิกได้",
-        variant: "destructive",
-      });
     }
-  });
+  );
 
-  // Update member mutation
-  const updateMemberMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number, data: Partial<Member> }) => {
-      const { response, data: responseData } = await apiRequest("PATCH", `/api/members/${id}`, data);
-      if (!response.ok) {
-        throw new Error(response.statusText || "ไม่สามารถอัปเดตข้อมูลสมาชิกได้");
+  // ใช้ Socket.IO สำหรับอัปเดตข้อมูลสมาชิก
+  const updateMemberMutation = useSocketMutation<Member, { id: number, data: Partial<Member> }>(
+    'updateMember',
+    {
+      onSuccess: () => {
+        setIsEditDialogOpen(false);
+        toast({
+          title: "อัปเดตข้อมูลสมาชิกสำเร็จ",
+          description: "ข้อมูลสมาชิกถูกอัปเดตเรียบร้อยแล้ว",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: error instanceof Error ? error.message : "ไม่สามารถอัปเดตข้อมูลสมาชิกได้",
+          variant: "destructive",
+        });
       }
-      return responseData;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/members'] });
-      setIsEditDialogOpen(false);
-      toast({
-        title: "อัปเดตข้อมูลสมาชิกสำเร็จ",
-        description: "ข้อมูลสมาชิกถูกอัปเดตเรียบร้อยแล้ว",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถอัปเดตข้อมูลสมาชิกได้",
-        variant: "destructive",
-      });
     }
-  });
+  );
 
-  // Add points mutation
-  const addPointsMutation = useMutation({
-    mutationFn: async ({ id, points }: { id: number, points: number }) => {
-      const { response, data } = await apiRequest("POST", `/api/members/${id}/add-points`, { points });
-      if (!response.ok) {
-        throw new Error(response.statusText || "ไม่สามารถเพิ่มคะแนนสะสมได้");
+  // ใช้ Socket.IO สำหรับเพิ่มคะแนนสะสม
+  const addPointsMutation = useSocketMutation<{ message: string }, { id: number, points: number }>(
+    'addMemberPoints',
+    {
+      onSuccess: (data) => {
+        setIsAddPointsDialogOpen(false);
+        toast({
+          title: "เพิ่มคะแนนสะสมสำเร็จ",
+          description: data?.message || `คะแนนสะสมจำนวน ${pointsToAdd} คะแนนถูกเพิ่มเรียบร้อยแล้ว`,
+        });
+        setPointsToAdd(0);
+      },
+      onError: (error) => {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: error instanceof Error ? error.message : "ไม่สามารถเพิ่มคะแนนสะสมได้",
+          variant: "destructive",
+        });
       }
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/members'] });
-      setIsAddPointsDialogOpen(false);
-      toast({
-        title: "เพิ่มคะแนนสะสมสำเร็จ",
-        description: data.message || `คะแนนสะสมจำนวน ${pointsToAdd} คะแนนถูกเพิ่มเรียบร้อยแล้ว`,
-      });
-      setPointsToAdd(0);
-    },
-    onError: (error) => {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถเพิ่มคะแนนสะสมได้",
-        variant: "destructive",
-      });
     }
-  });
+  );
 
   // Forms setup
   const addForm = useForm<FormValues>({

@@ -1,6 +1,10 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { setupResponseLogging } from './lib/addResponseLogging';
+
+// เปิดใช้งานการตรวจจับและบันทึกข้อมูล response เพื่อช่วยในการแก้ไขปัญหา
+setupResponseLogging();
 
 // Add CSS Variables for coffee theme colors
 document.documentElement.style.setProperty('--coffee-primary', '#6F4E37');

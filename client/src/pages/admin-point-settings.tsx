@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
+import { 
+  useSocketPointSettings, 
+  useSocketMutation, 
+  useSocketPointRedemptionRules 
+} from '@/hooks/useSocketQuery';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -164,24 +168,12 @@ export default function AdminPointSettings() {
   const [isDeleteRedemptionRuleDialogOpen, setIsDeleteRedemptionRuleDialogOpen] = useState(false);
   const [redemptionRuleToDelete, setRedemptionRuleToDelete] = useState<any>(null);
 
-  // Fetch all point settings
-  const { data: pointSettings = [], isLoading, error } = useQuery<PointSetting[]>({
-    queryKey: ['/api/point-settings'],
-    queryFn: async () => {
-      try {
-        // ใช้ fetch API แทน apiRequest เพื่อหลีกเลี่ยงปัญหา TypeScript
-        const response = await fetch('/api/point-settings');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data = await response.json();
-        return data as PointSetting[];
-      } catch (err) {
-        console.error('Error fetching point settings:', err);
-        return [];
-      }
-    },
-  });
+  // ใช้ Socket.IO ในการดึงข้อมูลตั้งค่าแต้มสะสม
+  const { 
+    data: pointSettings = [], 
+    isLoading, 
+    error 
+  } = useSocketPointSettings<PointSetting[]>();
 
   // Define form
   const form = useForm<PointSettingFormValues>({
@@ -195,120 +187,70 @@ export default function AdminPointSettings() {
     }
   });
 
-  // Create point setting mutation
-  const createMutation = useMutation({
-    mutationFn: async (data: PointSettingFormValues) => {
-      try {
-        const response = await fetch('/api/point-settings', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
+  // ใช้ Socket.IO สำหรับการเพิ่มการตั้งค่าแต้มสะสม
+  const createMutation = useSocketMutation<PointSetting, PointSettingFormValues>(
+    'createPointSetting',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'บันทึกการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error creating point setting:', error);
-        throw error;
+        form.reset();
+      },
+      onError: (error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถบันทึกการตั้งค่าแต้มสะสมได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-settings'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'บันทึกการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
-      });
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถบันทึกการตั้งค่าแต้มสะสมได้: ${error}`,
-      });
     }
-  });
+  );
 
-  // Update point setting mutation
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: PointSettingFormValues }) => {
-      try {
-        const response = await fetch(`/api/point-settings/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
+  // ใช้ Socket.IO สำหรับการอัปเดตการตั้งค่าแต้มสะสม
+  const updateMutation = useSocketMutation<PointSetting, { id: number; data: PointSettingFormValues }>(
+    'updatePointSetting',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'อัปเดตการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error updating point setting:', error);
-        throw error;
+        setEditingId(null);
+        form.reset();
+      },
+      onError: (error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถอัปเดตการตั้งค่าแต้มสะสมได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-settings'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'อัปเดตการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
-      });
-      setEditingId(null);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถอัปเดตการตั้งค่าแต้มสะสมได้: ${error}`,
-      });
     }
-  });
+  );
 
-  // Delete point setting mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      try {
-        const response = await fetch(`/api/point-settings/${id}`, {
-          method: 'DELETE',
+  // ใช้ Socket.IO สำหรับการลบการตั้งค่าแต้มสะสม
+  const deleteMutation = useSocketMutation<void, number>(
+    'deletePointSetting',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'ลบการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error deleting point setting:', error);
-        throw error;
+        setPointSettingToDelete(null);
+        setIsDeleteDialogOpen(false);
+      },
+      onError: (error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถลบการตั้งค่าแต้มสะสมได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-settings'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'ลบการตั้งค่าแต้มสะสมเรียบร้อยแล้ว',
-      });
-      setPointSettingToDelete(null);
-      setIsDeleteDialogOpen(false);
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถลบการตั้งค่าแต้มสะสมได้: ${error}`,
-      });
     }
-  });
+  );
 
   // Form submission handler
   function onSubmit(values: PointSettingFormValues) {
@@ -403,23 +345,11 @@ export default function AdminPointSettings() {
   
   // ฟังก์ชันสำหรับการจัดการกฎการแลกแต้ม
 
-  // ดึงข้อมูลกฎการแลกแต้มทั้งหมด
-  const { data: pointRedemptionRules = [], isLoading: isLoadingRules } = useQuery<PointRedemptionRule[]>({
-    queryKey: ['/api/point-redemption-rules'],
-    queryFn: async () => {
-      try {
-        const response = await fetch('/api/point-redemption-rules');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data = await response.json();
-        return data as PointRedemptionRule[];
-      } catch (err) {
-        console.error('Error fetching point redemption rules:', err);
-        return [];
-      }
-    },
-  });
+  // ใช้ Socket.IO ในการดึงข้อมูลกฎการแลกแต้ม
+  const { 
+    data: pointRedemptionRules = [], 
+    isLoading: isLoadingRules 
+  } = useSocketPointRedemptionRules<PointRedemptionRule[]>();
   
   // สร้างฟอร์มสำหรับกฎการแลกแต้ม
   const redemptionRuleForm = useForm<PointRedemptionRuleFormValues>({
@@ -436,120 +366,70 @@ export default function AdminPointSettings() {
     }
   });
   
-  // สร้างกฎการแลกแต้มใหม่
-  const createRedemptionRuleMutation = useMutation({
-    mutationFn: async (data: PointRedemptionRuleFormValues) => {
-      try {
-        const response = await fetch('/api/point-redemption-rules', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
+  // ใช้ Socket.IO สำหรับการสร้างกฎการแลกแต้มใหม่
+  const createRedemptionRuleMutation = useSocketMutation<PointRedemptionRule, PointRedemptionRuleFormValues>(
+    'createPointRedemptionRule',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'บันทึกกฎการแลกแต้มเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error creating point redemption rule:', error);
-        throw error;
+        redemptionRuleForm.reset();
+      },
+      onError: (error: Error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถบันทึกกฎการแลกแต้มได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-redemption-rules'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'บันทึกกฎการแลกแต้มเรียบร้อยแล้ว',
-      });
-      redemptionRuleForm.reset();
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถบันทึกกฎการแลกแต้มได้: ${error}`,
-      });
     }
-  });
+  );
   
-  // อัปเดตกฎการแลกแต้ม
-  const updateRedemptionRuleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: PointRedemptionRuleFormValues }) => {
-      try {
-        const response = await fetch(`/api/point-redemption-rules/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
+  // ใช้ Socket.IO สำหรับการอัปเดตกฎการแลกแต้ม
+  const updateRedemptionRuleMutation = useSocketMutation<PointRedemptionRule, { id: number; data: PointRedemptionRuleFormValues }>(
+    'updatePointRedemptionRule',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'อัปเดตกฎการแลกแต้มเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error updating point redemption rule:', error);
-        throw error;
+        setEditingRedemptionRuleId(null);
+        redemptionRuleForm.reset();
+      },
+      onError: (error: Error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถอัปเดตกฎการแลกแต้มได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-redemption-rules'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'อัปเดตกฎการแลกแต้มเรียบร้อยแล้ว',
-      });
-      setEditingRedemptionRuleId(null);
-      redemptionRuleForm.reset();
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถอัปเดตกฎการแลกแต้มได้: ${error}`,
-      });
     }
-  });
+  );
   
-  // ลบกฎการแลกแต้ม
-  const deleteRedemptionRuleMutation = useMutation({
-    mutationFn: async (id: number) => {
-      try {
-        const response = await fetch(`/api/point-redemption-rules/${id}`, {
-          method: 'DELETE',
+  // ใช้ Socket.IO สำหรับการลบกฎการแลกแต้ม
+  const deleteRedemptionRuleMutation = useSocketMutation<void, number>(
+    'deletePointRedemptionRule',
+    {
+      onSuccess: () => {
+        toast({
+          title: 'สำเร็จ',
+          description: 'ลบกฎการแลกแต้มเรียบร้อยแล้ว',
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error('Error deleting point redemption rule:', error);
-        throw error;
+        setRedemptionRuleToDelete(null);
+        setIsDeleteRedemptionRuleDialogOpen(false);
+      },
+      onError: (error: Error) => {
+        toast({
+          variant: 'destructive',
+          title: 'เกิดข้อผิดพลาด',
+          description: `ไม่สามารถลบกฎการแลกแต้มได้: ${error}`,
+        });
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/point-redemption-rules'] });
-      toast({
-        title: 'สำเร็จ',
-        description: 'ลบกฎการแลกแต้มเรียบร้อยแล้ว',
-      });
-      setRedemptionRuleToDelete(null);
-      setIsDeleteRedemptionRuleDialogOpen(false);
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'เกิดข้อผิดพลาด',
-        description: `ไม่สามารถลบกฎการแลกแต้มได้: ${error}`,
-      });
     }
-  });
+  );
   
   // ฟังก์ชันสำหรับการส่งฟอร์มกฎการแลกแต้ม
   function onSubmitRedemptionRule(values: PointRedemptionRuleFormValues) {

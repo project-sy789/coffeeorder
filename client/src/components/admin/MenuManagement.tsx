@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { type Product, type InsertProduct, insertProductSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getSocket, 
+  registerRole, 
+  fetchProducts, 
+  fetchCategories 
+} from "@/lib/socket";
+import { useSocketQuery, useSocketMutation } from "@/hooks/useSocketQuery";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -56,31 +63,98 @@ export default function MenuManagement() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [updatedCategory, setUpdatedCategory] = useState("");
   
+  // สถานะสำหรับเก็บข้อมูลที่ดึงมาจาก Socket.IO
+  const [socketProducts, setSocketProducts] = useState<Product[]>([]);
+  const [socketCategories, setSocketCategories] = useState<string[]>([]);
+  const [isSocketLoading, setIsSocketLoading] = useState(true);
+  
   const { toast } = useToast();
 
-  // Fetch products
-  const { data: products = [], isLoading } = useQuery({
-    queryKey: ['/api/products'],
-    select: (data: Product[]) => data.sort((a, b) => a.category.localeCompare(b.category)),
-  });
-  
-  // Fetch categories
-  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
-    queryKey: ['/api/categories'],
-  });
-
-  // Add product mutation
-  const addProductMutation = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const { response } = await apiRequest("POST", "/api/products", data);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถเพิ่มเมนูได้");
+  // เชื่อมต่อ Socket.IO และลงทะเบียนเป็น admin
+  useEffect(() => {
+    // ลงทะเบียนเป็น admin
+    registerRole('admin');
+    
+    // เรียกข้อมูลสินค้าและหมวดหมู่ผ่าน Socket.IO
+    const loadData = async () => {
+      try {
+        setIsSocketLoading(true);
+        
+        // ดึงข้อมูลสินค้า
+        const products = await fetchProducts<Product[]>();
+        if (products) {
+          setSocketProducts(products.sort((a, b) => a.category.localeCompare(b.category)));
+        }
+        
+        // ดึงข้อมูลหมวดหมู่
+        const categories = await fetchCategories<string[]>();
+        if (categories) {
+          setSocketCategories(categories);
+        }
+        
+        setIsSocketLoading(false);
+        console.log('MenuManagement: Data loaded via Socket.IO successfully');
+      } catch (error) {
+        console.error('MenuManagement: Error loading data via Socket.IO:', error);
+        setIsSocketLoading(false);
+        
+        // แสดงข้อความแจ้งเตือนเมื่อมีข้อผิดพลาด
+        toast({
+          title: "ไม่สามารถโหลดข้อมูลผ่าน Socket.IO ได้",
+          description: "กำลังใช้การเชื่อมต่อแบบปกติแทน",
+          variant: "destructive",
+        });
       }
-      return response.json();
-    },
+    };
+    
+    loadData();
+    
+    // ลงทะเบียนรับข้อมูลเมื่อมีการอัพเดต
+    const socket = getSocket();
+    
+    socket.on('dataUpdated', (data) => {
+      if (data.type === 'products') {
+        console.log('MenuManagement: Products updated via Socket.IO');
+        setSocketProducts(data.payload.sort((a: Product, b: Product) => a.category.localeCompare(b.category)));
+      } else if (data.type === 'categories') {
+        console.log('MenuManagement: Categories updated via Socket.IO');
+        setSocketCategories(data.payload);
+      }
+    });
+    
+    // ทำความสะอาดเมื่อ component ถูกทำลาย
+    return () => {
+      socket.off('dataUpdated');
+    };
+  }, [toast]);
+
+  // Fetch products via Socket.IO
+  const { data: products = [], isLoading } = useSocketQuery<Product[]>(
+    'getProducts',
+    {},
+    {
+      select: (data: Product[]) => data.sort((a, b) => a.category.localeCompare(b.category)),
+      enabled: socketProducts.length === 0 && !isSocketLoading, // เปิดใช้งานเฉพาะเมื่อไม่มีข้อมูลจาก fetchProducts
+    }
+  );
+  
+  // Fetch categories via Socket.IO
+  const { data: categories = [], isLoading: isCategoriesLoading } = useSocketQuery<string[]>(
+    'getCategories',
+    {},
+    {
+      enabled: socketCategories.length === 0 && !isSocketLoading, // เปิดใช้งานเฉพาะเมื่อไม่มีข้อมูลจาก fetchCategories
+    }
+  );
+  
+  // ใช้ข้อมูลจาก Socket.IO ก่อน ถ้าไม่มีให้ใช้ข้อมูลจาก API
+  const displayProducts = socketProducts.length > 0 ? socketProducts : products;
+  const displayCategories = socketCategories.length > 0 ? socketCategories : categories;
+
+  // Add product mutation with Socket.IO
+  const addProductMutation = useSocketMutation<FormValues, Product>('createProduct', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['getProducts'] });
       setIsAddDialogOpen(false);
       toast({
         title: "เพิ่มเมนูสำเร็จ",
@@ -96,18 +170,10 @@ export default function MenuManagement() {
     }
   });
 
-  // Update product mutation
-  const updateProductMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number, data: Partial<Product> }) => {
-      const { response } = await apiRequest("PATCH", `/api/products/${id}`, data);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถอัปเดตเมนูได้");
-      }
-      return response.json();
-    },
+  // Update product mutation with Socket.IO
+  const updateProductMutation = useSocketMutation<{ id: number, data: Partial<Product> }, Product>('updateProduct', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['getProducts'] });
       setIsEditDialogOpen(false);
       toast({
         title: "อัปเดตเมนูสำเร็จ",
@@ -123,18 +189,10 @@ export default function MenuManagement() {
     }
   });
 
-  // Delete product mutation
-  const deleteProductMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const { response } = await apiRequest("DELETE", `/api/products/${id}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถลบเมนูได้");
-      }
-      return response.json();
-    },
+  // Delete product mutation with Socket.IO
+  const deleteProductMutation = useSocketMutation<number, any>('deleteProduct', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['getProducts'] });
       setIsDeleteDialogOpen(false);
       toast({
         title: "ลบเมนูสำเร็จ",
@@ -150,18 +208,10 @@ export default function MenuManagement() {
     }
   });
   
-  // Add category mutation
-  const addCategoryMutation = useMutation({
-    mutationFn: async (category: string) => {
-      const { response } = await apiRequest("POST", "/api/categories", { category });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถเพิ่มหมวดหมู่ได้");
-      }
-      return response.json();
-    },
+  // Add category mutation with Socket.IO
+  const addCategoryMutation = useSocketMutation<string, any>('addCategory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+      queryClient.invalidateQueries({ queryKey: ['getCategories'] });
       setNewCategory("");
       toast({
         title: "เพิ่มหมวดหมู่สำเร็จ",
@@ -177,19 +227,11 @@ export default function MenuManagement() {
     }
   });
   
-  // Update category mutation
-  const updateCategoryMutation = useMutation({
-    mutationFn: async ({ oldCategory, newCategory }: { oldCategory: string, newCategory: string }) => {
-      const { response } = await apiRequest("PUT", `/api/categories/${encodeURIComponent(oldCategory)}`, { newCategory });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถแก้ไขหมวดหมู่ได้");
-      }
-      return response.json();
-    },
+  // Update category mutation with Socket.IO
+  const updateCategoryMutation = useSocketMutation<{ oldCategory: string, newCategory: string }, any>('updateCategory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['getCategories'] });
+      queryClient.invalidateQueries({ queryKey: ['getProducts'] });
       setIsEditCategoryDialogOpen(false);
       setSelectedCategory("");
       setUpdatedCategory("");
@@ -207,19 +249,11 @@ export default function MenuManagement() {
     }
   });
   
-  // Delete category mutation
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (category: string) => {
-      const { response } = await apiRequest("DELETE", `/api/categories/${encodeURIComponent(category)}`);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "ไม่สามารถลบหมวดหมู่ได้");
-      }
-      return true;
-    },
+  // Delete category mutation with Socket.IO
+  const deleteCategoryMutation = useSocketMutation<string, any>('deleteCategory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['getCategories'] });
+      queryClient.invalidateQueries({ queryKey: ['getProducts'] });
       setIsDeleteCategoryDialogOpen(false);
       setSelectedCategory("");
       toast({
@@ -277,7 +311,7 @@ export default function MenuManagement() {
   };
 
   // Filter products by category and search
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = displayProducts.filter(product => {
     const matchesCategory = activeCategory === "all" || product.category === activeCategory;
     const matchesSearch = searchQuery === "" || 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -400,18 +434,18 @@ export default function MenuManagement() {
               </div>
               
               <div className="border rounded-md">
-                {isCategoriesLoading ? (
+                {isCategoriesLoading && displayCategories.length === 0 ? (
                   <div className="flex justify-center items-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     <span>กำลังโหลดข้อมูล...</span>
                   </div>
-                ) : categories.length === 0 ? (
+                ) : displayCategories.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
                     ไม่พบหมวดหมู่เมนู
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {categories.map((category: string) => (
+                    {displayCategories.map((category: string) => (
                       <div key={category} className="flex items-center justify-between p-3">
                         <span>{category}</span>
                         <div className="flex gap-1">
@@ -486,7 +520,7 @@ export default function MenuManagement() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {categories.map((category: string) => (
+                              {displayCategories.map((category: string) => (
                                 <SelectItem key={category} value={category}>
                                   {category}
                                 </SelectItem>
@@ -616,7 +650,7 @@ export default function MenuManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทั้งหมด</SelectItem>
-                  {categories.map((category: string) => (
+                  {displayCategories.map((category: string) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
@@ -632,7 +666,7 @@ export default function MenuManagement() {
                   >
                     ทั้งหมด
                   </Button>
-                  {categories.map((category: string) => (
+                  {displayCategories.map((category: string) => (
                     <Button
                       key={category}
                       variant={activeCategory === category ? "default" : "outline"}
@@ -658,7 +692,7 @@ export default function MenuManagement() {
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
-          <Image className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+          <Search className="h-16 w-16 mx-auto text-gray-400 mb-4" strokeWidth={1.5} /> {/* ใช้ Search แทน Image */}
           <h3 className="text-lg font-medium text-gray-900 mb-1">ไม่พบเมนูที่ค้นหา</h3>
           <p className="text-gray-500">ลองค้นหาด้วยคำอื่น หรือเพิ่มเมนูใหม่</p>
         </div>
@@ -758,7 +792,7 @@ export default function MenuManagement() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categories.map((category: string) => (
+                          {displayCategories.map((category: string) => (
                             <SelectItem key={category} value={category}>
                               {category}
                             </SelectItem>

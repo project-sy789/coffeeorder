@@ -37,13 +37,44 @@ export class DatabaseStorage implements IStorage {
   async checkDatabaseConnection(): Promise<{ success: boolean; error?: string }> {
     try {
       // ทดสอบการเชื่อมต่อโดยดึงข้อมูลง่ายๆ
-      await db.select({ value: sql`1` }).limit(1);
+      // ใช้ SQL query โดยตรงเพื่อหลีกเลี่ยงปัญหา limit is not a function
+      await sql`SELECT 1 as value`.run(db);
       return { success: true };
     } catch (error: any) {
       console.error('Database connection check failed:', error);
       return { 
         success: false, 
         error: error.message || 'Unknown database error'
+      };
+    }
+  }
+  
+  // ทดสอบการเชื่อมต่อฐานข้อมูลที่กำหนดเอง
+  async testCustomConnection(connectionString: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // ใช้ sql query โดยตรงเพื่อทดสอบการเชื่อมต่อ
+      const { Pool } = require('pg');
+      const testPool = new Pool({ connectionString });
+      
+      try {
+        const client = await testPool.connect();
+        await client.query('SELECT 1 as value');
+        client.release();
+        await testPool.end();
+        return { success: true };
+      } catch (dbError: any) {
+        await testPool.end();
+        console.error('Custom database connection failed:', dbError);
+        return {
+          success: false,
+          error: dbError.message || 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้'
+        };
+      }
+    } catch (error: any) {
+      console.error('Error in testCustomConnection:', error);
+      return {
+        success: false,
+        error: error.message || 'เกิดข้อผิดพลาดในการทดสอบการเชื่อมต่อ'
       };
     }
   }

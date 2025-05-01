@@ -1,6 +1,6 @@
 import { Switch, Route, Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import POS from "@/pages/pos";
@@ -13,26 +13,40 @@ import PaymentSuccess from "@/pages/payment-success";
 import AdminPointSettings from "@/pages/admin-point-settings";
 import ThemeProvider from "@/components/ThemeProvider";
 import { useState, useEffect } from "react";
+import { getSocket, registerRole, disconnectSocket, fetchDataViaSocket } from "./lib/socket";
+import { useSocketTheme } from "@/hooks/useSocketQuery";
 
 function Router() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [location, setLocation] = useLocation();
+  const [storeName, setStoreName] = useState<string>('คาเฟ่ของฉัน');
   
-  // Fetch store name
-  const { data: storeSetting } = useQuery({
-    queryKey: ['/api/settings/value/store_name'],
-    queryFn: async () => {
-      const { data } = await apiRequest('GET', '/api/settings/value/store_name');
-      return data;
-    },
-    retry: 1,
-  });
-  
-  const storeName = storeSetting?.value || 'คาเฟ่ของฉัน';
+  // ใช้ Socket.IO เพื่อดึงข้อมูลชื่อร้าน
+  useEffect(() => {
+    const socket = getSocket();
+    
+    // ดึงข้อมูลการตั้งค่าร้านผ่าน Socket.IO
+    socket.emit('getSetting', { key: 'store_name' }, (response: any) => {
+      if (response?.success && response.data?.value) {
+        setStoreName(response.data.value);
+      }
+    });
+  }, []);
 
   // ตรวจสอบว่ามี session หรือไม่ จาก localStorage
   // ในสภาพแวดล้อมจริงควรใช้ cookie หรือ session ที่มีการ validate ที่ server
+  // ดึงและกำหนดค่า socket.io สำหรับ real-time updates
+  useEffect(() => {
+    // เริ่มต้นการเชื่อมต่อ Socket.IO
+    const socket = getSocket();
+
+    // ทำความสะอาดเมื่อ component unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, []);
+
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -43,12 +57,22 @@ function Router() {
           // ถ้ามีข้อมูลผู้ใช้ใน localStorage ให้ตั้งค่า user state
           const userData = JSON.parse(storedUser);
           setUser(userData);
+
+          // ลงทะเบียนบทบาทกับ Socket.IO server ตามสิทธิ์ของผู้ใช้
+          if (userData.role === 'admin') {
+            registerRole('admin');
+          } else {
+            registerRole('staff');
+          }
           
           // ถ้าผู้ใช้เข้าหน้าลูกค้า แต่เป็นพนักงานที่ล็อกอินแล้ว แสดงเมนูในหน้าลูกค้า
           // ไม่ต้อง redirect ไปหน้าพนักงาน เพื่อให้พนักงานสามารถใช้ระบบในมุมมองของลูกค้าได้
         } else {
           // ถ้าไม่มีข้อมูลผู้ใช้ ให้ user เป็น null
           setUser(null);
+          
+          // ลงทะเบียนเป็น customer สำหรับผู้ที่ไม่ได้ล็อกอิน
+          registerRole('customer');
           
           // ถ้าอยู่ในหน้าที่ต้องการการล็อกอิน (พนักงาน/แอดมิน) ให้ redirect ไปหน้าลูกค้า
           if (location === '/' || location === '/admin') {

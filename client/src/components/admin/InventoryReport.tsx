@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSocketInventory, useSocketMutation } from "@/hooks/useSocketQuery";
 import { Inventory, Product, InventoryTransaction } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -142,38 +141,31 @@ export default function InventoryReport() {
     },
   });
 
-  // Fetch inventory items
+  // ใช้ Socket.IO สำหรับดึงข้อมูลสินค้าคงคลัง
   const { 
     data: inventoryItems = [], 
     isLoading: isLoadingInventory,
     refetch: refetchInventory
-  } = useQuery<Inventory[]>({
-    queryKey: ["/api/inventory"],
-  });
+  } = useSocketInventory<Inventory[]>({});
   
-  // Fetch inventory transactions for the selected item
+  // ใช้ Socket.IO สำหรับดึงข้อมูลธุรกรรมของสินค้าคงคลัง
   const { 
     data: inventoryTransactions = [], 
     isLoading: isLoadingTransactions,
     refetch: refetchTransactions
-  } = useQuery<InventoryTransaction[]>({
-    queryKey: ["/api/inventory/transactions", currentItem?.id],
-    queryFn: async () => {
-      if (!currentItem) return [];
-      const response = await apiRequest("GET", `/api/inventory/transactions/${currentItem.id}`);
-      return response.data;
-    },
-    enabled: !!currentItem && showHistoryDialog,
+  } = useSocketInventory<InventoryTransaction[]>({
+    queryKey: 'inventoryTransactions',
+    event: 'getInventoryTransactions',
+    payload: { inventoryId: currentItem?.id },
+    options: {
+      enabled: !!currentItem && showHistoryDialog,
+    }
   });
 
-  // Add inventory mutation
-  const addInventoryMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof InventoryFormSchema>) => {
-      const response = await apiRequest("POST", "/api/inventory", data);
-      return response.data;
-    },
+  // ใช้ Socket.IO สำหรับการเพิ่มสินค้าคงคลัง
+  const addInventoryMutation = useSocketMutation<any, z.infer<typeof InventoryFormSchema>>('createInventory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ['getInventory'] });
       toast({
         title: "เพิ่มสินค้าสำเร็จ",
         description: "เพิ่มรายการสินค้าคงคลังเรียบร้อยแล้ว",
@@ -190,15 +182,10 @@ export default function InventoryReport() {
     },
   });
 
-  // Update inventory mutation
-  const updateInventoryMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof InventoryFormSchema> & { id: number }) => {
-      const { id, ...rest } = data;
-      const response = await apiRequest("PUT", `/api/inventory/${id}`, rest);
-      return response.data;
-    },
+  // ใช้ Socket.IO สำหรับการอัปเดตสินค้าคงคลัง
+  const updateInventoryMutation = useSocketMutation<any, z.infer<typeof InventoryFormSchema> & { id: number }>('updateInventory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ['getInventory'] });
       toast({
         title: "อัปเดตสินค้าสำเร็จ",
         description: "อัปเดตรายการสินค้าคงคลังเรียบร้อยแล้ว",
@@ -215,17 +202,13 @@ export default function InventoryReport() {
     },
   });
   
-  // Stock adjustment mutation
-  const stockAdjustMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof StockAdjustmentSchema>) => {
-      const response = await apiRequest("POST", "/api/inventory/adjust", data);
-      return response.data;
-    },
+  // ใช้ Socket.IO สำหรับการปรับสต็อกสินค้าคงคลัง (รับเข้า/เบิกจ่าย)
+  const stockAdjustMutation = useSocketMutation<any, z.infer<typeof StockAdjustmentSchema>>('adjustInventory', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ['getInventory'] });
       // อัปเดตแคชของรายการธุรกรรมด้วย
       if (currentItem) {
-        queryClient.invalidateQueries({ queryKey: ["/api/inventory/transactions", currentItem.id] });
+        queryClient.invalidateQueries({ queryKey: ['inventoryTransactions'] });
       }
       toast({
         title: adjustmentType === "receive" ? "รับสินค้าเข้าสำเร็จ" : "เบิกจ่ายสินค้าสำเร็จ",
@@ -289,7 +272,7 @@ export default function InventoryReport() {
   };
 
   // Apply filters
-  const filteredInventory = inventoryItems.filter(item => {
+  const filteredInventory = inventoryItems && Array.isArray(inventoryItems) ? inventoryItems.filter(item => {
     // Search filter
     const matchesSearch = 
       !searchTerm || 
@@ -302,12 +285,12 @@ export default function InventoryReport() {
       (stockFilter === "normal" && item.quantity > item.reorderLevel);
     
     return matchesSearch && matchesStock;
-  });
+  }) : [];
 
   // Count low stock items
-  const lowStockCount = inventoryItems.filter(item => 
-    item.quantity <= item.reorderLevel
-  ).length;
+  const lowStockCount = inventoryItems && Array.isArray(inventoryItems) ? 
+    inventoryItems.filter(item => item.quantity <= item.reorderLevel).length 
+    : 0;
 
   // Prepare data for stock level chart
   const stockLevelData = filteredInventory.map(item => {
@@ -428,9 +411,9 @@ export default function InventoryReport() {
             <div className="flex justify-center py-8">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredInventory.length === 0 ? (
+          ) : !filteredInventory || filteredInventory.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
-              {inventoryItems.length === 0 ? 
+              {!inventoryItems || !Array.isArray(inventoryItems) || inventoryItems.length === 0 ? 
                 "ไม่พบข้อมูลสินค้าคงคลัง กรุณาเพิ่มรายการสินค้า" : 
                 "ไม่พบรายการสินค้าที่ตรงกับการค้นหา"}
             </div>
@@ -879,7 +862,7 @@ export default function InventoryReport() {
                 {inventoryTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="whitespace-nowrap">
-                      {formatDateTime(transaction.createdAt)}
+                      {transaction.createdAt ? formatDateTime(transaction.createdAt) : "-"}
                     </TableCell>
                     <TableCell>
                       {transaction.type === "receive" ? (

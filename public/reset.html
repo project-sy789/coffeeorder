@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รีเซ็ตระบบ POS คาเฟ่</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background-color: #f8f9fa;
+    }
+    .card {
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .btn-danger {
+      background-color: #dc3545;
+      border-color: #dc3545;
+    }
+    .btn-danger:hover {
+      background-color: #bb2d3b;
+      border-color: #b02a37;
+    }
+    .header {
+      background-color: #dc3545;
+      color: white;
+      padding: 2rem 0;
+      margin-bottom: 2rem;
+      border-radius: 0 0 10px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header text-center">
+    <h1>รีเซ็ตระบบ POS คาเฟ่</h1>
+    <p>หน้านี้สำหรับรีเซ็ตระบบทั้งหมด</p>
+  </div>
+
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="card mb-4">
+          <div class="card-header bg-danger text-white">
+            <h3>คำเตือน: การดำเนินการนี้ไม่สามารถย้อนกลับได้</h3>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-warning">
+              <strong>ข้อควรระวัง:</strong> การรีเซ็ตระบบจะลบข้อมูลการตั้งค่าทั้งหมด และคุณจะต้องตั้งค่าระบบใหม่ทั้งหมด ข้อมูลทั้งหมดในระบบจะถูกลบ!
+            </div>
+            
+            <p>การรีเซ็ตระบบจะดำเนินการดังนี้:</p>
+            <ul>
+              <li>ลบการตั้งค่าระบบทั้งหมด</li>
+              <li>ลบข้อมูลการเชื่อมต่อฐานข้อมูล</li>
+              <li>เริ่มกระบวนการติดตั้งใหม่ทั้งหมด</li>
+            </ul>
+            
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="confirmReset">
+              <label class="form-check-label" for="confirmReset">
+                ฉันเข้าใจผลกระทบของการรีเซ็ตระบบและต้องการดำเนินการต่อ
+              </label>
+            </div>
+            
+            <div class="d-grid">
+              <button class="btn btn-danger" id="resetButton" disabled>รีเซ็ตระบบ</button>
+            </div>
+            
+            <div class="mt-3 alert" id="resetResult" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="text-center">
+          <a href="/" class="btn btn-secondary">กลับไปยังหน้าหลัก</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const confirmCheckbox = document.getElementById('confirmReset');
+      const resetButton = document.getElementById('resetButton');
+      const resetResult = document.getElementById('resetResult');
+      
+      confirmCheckbox.addEventListener('change', function() {
+        resetButton.disabled = !this.checked;
+      });
+      
+      resetButton.addEventListener('click', function() {
+        if (!confirmCheckbox.checked) {
+          return;
+        }
+        
+        resetResult.style.display = 'block';
+        resetResult.className = 'mt-3 alert alert-info';
+        resetResult.textContent = 'กำลังรีเซ็ตระบบ...';
+        resetButton.disabled = true;
+        
+        fetch('/api/reset-system', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            resetResult.className = 'mt-3 alert alert-success';
+            resetResult.innerHTML = `
+              <p><strong>รีเซ็ตระบบสำเร็จ!</strong></p>
+              <p>${data.message}</p>
+              <p>ระบบจะรีสตาร์ทในอีก <span id="countdown">5</span> วินาที...</p>
+            `;
+            
+            let seconds = 5;
+            const countdownEl = document.getElementById('countdown');
+            const countdown = setInterval(() => {
+              seconds--;
+              countdownEl.textContent = seconds;
+              
+              if (seconds <= 0) {
+                clearInterval(countdown);
+                window.location.href = '/install';
+              }
+            }, 1000);
+          } else {
+            resetResult.className = 'mt-3 alert alert-danger';
+            resetResult.textContent = `เกิดข้อผิดพลาด: ${data.message}`;
+            resetButton.disabled = false;
+          }
+        })
+        .catch(error => {
+          resetResult.className = 'mt-3 alert alert-danger';
+          resetResult.textContent = `เกิดข้อผิดพลาดในการเชื่อมต่อ: ${error.message}`;
+          resetButton.disabled = false;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

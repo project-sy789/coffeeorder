@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useQuery } from "@tanstack/react-query";
+import { useSocketQuery } from "@/hooks/useSocketQuery";
 
 interface CustomizationModalProps {
   product: Product;
@@ -75,15 +75,17 @@ export default function CustomizationModal({
   
   const [totalPrice, setTotalPrice] = useState(product.price);
   
-  // Query for all customization types
-  const { data: customizationTypes = [] } = useQuery<string[]>({
-    queryKey: ['/api/customization-types'],
-  });
+  // Query for all customization types ด้วย Socket.IO
+  const { data: customizationTypes = [] } = useSocketQuery<string[]>(
+    'getCustomizationTypes',
+    {}
+  );
   
-  // Query for customization type display names (Thai)
-  const { data: typeDisplayNames = {} } = useQuery<Record<string, string>>({
-    queryKey: ['/api/customization-types/display-names'],
-  });
+  // Query for customization type display names (Thai) ด้วย Socket.IO
+  const { data: typeDisplayNames = {} } = useSocketQuery<Record<string, string>>(
+    'getCustomizationTypeLabels',
+    {}
+  );
   
   // Create a lookup map for all option types
   const optionsByType = customizationOptions.reduce<Record<string, CustomizationOption[]>>((acc, option) => {

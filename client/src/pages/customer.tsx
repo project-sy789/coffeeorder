@@ -12,6 +12,12 @@ import LoginForm from "@/components/customer/LoginForm";
 import { CartItem } from "@/hooks/useCart";
 import { v4 as uuidv4 } from 'uuid';
 import { useLocation } from "wouter";
+import { 
+  useSocketProducts, 
+  useSocketCustomizationOptions,
+  useSocketSettingValue 
+} from "@/hooks/useSocketQuery";
+import { registerRole } from "@/lib/socket";
 
 export default function Customer() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -55,48 +61,52 @@ export default function Customer() {
     }
   }, [products, activeCategory]);
 
+  // ลงทะเบียนบทบาทเป็น customer
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const productsResponse = await apiRequest('GET', '/api/products');
-        if (productsResponse.data) {
-          setProducts(productsResponse.data);
-        }
-
-        const optionsResponse = await apiRequest('GET', '/api/customization-options');
-        if (optionsResponse.data) {
-          setCustomizationOptions(optionsResponse.data);
-        }
-
-        // ดึงข้อมูลชื่อร้านและสถานะร้านจาก API
-        try {
-          const storeNameResponse = await apiRequest('GET', '/api/settings/value/store_name');
-          if (storeNameResponse.data && storeNameResponse.data.value) {
-            setStoreName(storeNameResponse.data.value);
-          }
-          
-          // ดึงข้อมูลสถานะร้าน
-          const storeStatusResponse = await apiRequest('GET', '/api/settings/value/store_status');
-          if (storeStatusResponse.data && storeStatusResponse.data.value) {
-            setStoreStatus(storeStatusResponse.data.value);
-          }
-        } catch (e) {
-          console.log('Store settings not set yet, using default');
-        }
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast({
-          title: "เกิดข้อผิดพลาด",
-          description: "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง",
-          variant: "destructive",
-        });
-      }
-    };
-
-    fetchData();
-  }, [toast]);
+    registerRole('customer');
+  }, []);
+  
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลสินค้า
+  const { data: productsData = [], isLoading: loadingProducts } = useSocketProducts<Product[]>();
+  
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลตัวเลือกการปรับแต่ง
+  const { data: customizationOptionsData = [], isLoading: loadingOptions } = useSocketCustomizationOptions<CustomizationOption[]>();
+  
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลชื่อร้าน
+  const { data: storeNameData = "ร้านกาแฟ", isLoading: loadingStoreName } = useSocketSettingValue<string>('store_name');
+  
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลสถานะร้าน
+  const { data: storeStatusData = "open", isLoading: loadingStoreStatus } = useSocketSettingValue<string>('store_status');
+  
+  // อัปเดต state จากข้อมูล Socket.IO
+  useEffect(() => {
+    if (productsData.length > 0) {
+      setProducts(productsData);
+    }
+  }, [productsData]);
+  
+  useEffect(() => {
+    if (customizationOptionsData.length > 0) {
+      setCustomizationOptions(customizationOptionsData);
+    }
+  }, [customizationOptionsData]);
+  
+  useEffect(() => {
+    if (storeNameData) {
+      setStoreName(storeNameData);
+    }
+  }, [storeNameData]);
+  
+  useEffect(() => {
+    if (storeStatusData) {
+      setStoreStatus(storeStatusData);
+    }
+  }, [storeStatusData]);
+  
+  // อัปเดตสถานะการโหลด
+  useEffect(() => {
+    setIsLoading(loadingProducts || loadingOptions || loadingStoreName || loadingStoreStatus);
+  }, [loadingProducts, loadingOptions, loadingStoreName, loadingStoreStatus]);
 
   const handleProductSelect = (product: Product) => {
     // ตรวจสอบสถานะร้านค้าก่อนเปิดหน้าเลือกรายละเอียดสินค้า

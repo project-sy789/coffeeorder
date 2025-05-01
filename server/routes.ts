@@ -17,6 +17,9 @@ import {
   insertProductIngredientSchema,
   insertInventoryTransactionSchema,
 } from "@shared/schema";
+
+// Import ws โดยตรงถูกย้ายไปที่ realtime.js เพื่อลดความซ้ำซ้อน
+
 import { WebSocketServer, WebSocket } from 'ws';
 import promptpay from 'promptpay-qr';
 import QRCode from 'qrcode';
@@ -26,6 +29,10 @@ import { promisify } from "util";
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+// เรียกใช้ socket.io แทน ws
+import { setupSocketIO } from './realtime.js';
+// Import safe JSON serialization utilities
+import { safeSendJSON, safeJSONStringify } from './safe-json';
 
 const scryptAsync = promisify(scrypt);
 
@@ -77,6 +84,49 @@ function formatCurrency(amount: number): string {
 let activeConnections: WebSocket[] = [];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add middleware for JSON response validation early in the stack
+  app.use((req, res, next) => {
+    // Store the original json method
+    const originalJson = res.json;
+    
+    // Override the json method
+    res.json = function(body) {
+      try {
+        // Make sure body is serializable
+        const serializedBody = JSON.stringify(body);
+        // Make sure we can parse it back - this helps catch any hidden circular references
+        JSON.parse(serializedBody);
+        
+        // Set proper content type
+        res.set('Content-Type', 'application/json');
+        
+        // Call the original json method with validated data
+        return originalJson.call(this, body);
+      } catch (error) {
+        console.error("JSON serialization error:", error);
+        // If there is an error in serialization, return a safe response
+        if (Array.isArray(body)) {
+          return originalJson.call(this, []);
+        } else if (body === null || body === undefined) {
+          return originalJson.call(this, null);
+        } else {
+          return originalJson.call(this, { error: "Error serializing response" });
+        }
+      }
+    };
+    
+    next();
+  });
+
+  // นำเข้า setup-demo-data สำหรับการตั้งค่าข้อมูลตัวอย่าง
+  let setupDemoData: (force?: boolean) => Promise<void>;
+  try {
+    const demoDataModule = await import('./setup-demo-data.js');
+    setupDemoData = demoDataModule.setupDemoData;
+  } catch (error) {
+    console.warn('ไม่สามารถโหลดโมดูลตัวอย่างข้อมูลได้:', error);
+    setupDemoData = async () => { console.log('ฟังก์ชันตัวอย่างข้อมูลไม่พร้อมใช้งาน'); };
+  }
   // สร้าง Router สำหรับระบบติดตั้งและแก้ไขปัญหา
   const installRouter = express.Router();
   
@@ -84,6 +134,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/install', (req, res) => {
     // ส่งไฟล์ HTML หน้าติดตั้ง
     res.sendFile(path.join(process.cwd(), 'public/install/index.html'));
+  });
+  
+  // API สำหรับการติดตั้งระบบ
+  app.post('/api/install', async (req, res) => {
+    try {
+      const { storeName, username, password, installDemoData } = req.body;
+      
+      if (!storeName || !username || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "กรุณากรอกข้อมูลให้ครบถ้วน" 
+        });
+      }
+      
+      console.log('กำลังตรวจสอบสถานะการติดตั้งระบบ...');
+      
+      // ตรวจสอบว่ามีข้อมูลร้านค้าและผู้ดูแลระบบที่ยังใช้งานอยู่หรือไม่
+      const existingStore = await storage.getSetting('store_name');
+      const existingUsers = await storage.getUsersByRole('admin');
+      const activeAdmins = existingUsers?.filter(user => user.active !== false) || [];
+      
+      // ถ้ามีทั้งชื่อร้าน (ที่ไม่ว่างเปล่า) และผู้ดูแลระบบที่ active อยู่ 
+      // แสดงว่ามีการติดตั้งระบบแล้ว
+      if (existingStore && existingStore.value && existingStore.value.trim() !== '' && 
+          activeAdmins.length > 0) {
+        console.log('พบว่ามีการติดตั้งระบบแล้ว: ชื่อร้าน =', existingStore.value, 
+                    ', ผู้ดูแลระบบที่ยังใช้งาน =', activeAdmins.length, 'คน');
+        
+        return res.status(400).json({ 
+          success: false, 
+          message: "มีการติดตั้งระบบไปแล้ว กรุณาใช้เมนูรีเซ็ตระบบหากต้องการติดตั้งใหม่" 
+        });
+      }
+      
+      console.log('ไม่พบการติดตั้งระบบก่อนหน้า หรือระบบถูกรีเซ็ตแล้ว ดำเนินการติดตั้งใหม่...');
+      console.log('ข้อมูลร้านค้า:', existingStore ? existingStore.value : 'ไม่มี');
+      console.log('จำนวนผู้ดูแลระบบที่ยังใช้งาน:', activeAdmins.length);
+      
+      // สร้างบัญชีผู้ดูแลระบบ
+      const hashedPassword = await hashPassword(password);
+      
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+        name: 'ผู้ดูแลระบบ',
+        role: 'admin',
+        active: true
+      });
+      
+      // บันทึกข้อมูลร้านค้า
+      await storage.createOrUpdateSetting('store_name', storeName, 'ชื่อร้าน');
+      await storage.createOrUpdateSetting('store_status', 'open', 'สถานะการเปิดให้บริการ (open/closed)');
+      
+      // สร้างข้อมูลพื้นฐานอื่นๆ ที่จำเป็น
+      await storage.createOrUpdateSetting('promptpay_id', '0899999999', 'หมายเลขพร้อมเพย์สำหรับรับชำระเงิน');
+      await storage.createOrUpdateSetting('promptpay_type', 'phone', 'ประเภทพร้อมเพย์ (phone/id)');
+      
+      // ติดตั้งข้อมูลตัวอย่างเสมอ ไม่ว่าจะเลือกหรือไม่
+      try {
+        console.log('กำลังติดตั้งข้อมูลตัวอย่าง...');
+        await setupDemoData(true);
+        console.log('ติดตั้งข้อมูลตัวอย่างเรียบร้อยแล้ว');
+      } catch (demoError) {
+        console.error('เกิดข้อผิดพลาดในการติดตั้งข้อมูลตัวอย่าง:', demoError);
+        // แม้ว่าจะมีข้อผิดพลาดในการติดตั้งข้อมูลตัวอย่าง แต่เราจะไม่ทำให้การติดตั้งระบบล้มเหลว
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: installDemoData ? 
+          "ติดตั้งระบบและข้อมูลตัวอย่างเรียบร้อยแล้ว" : 
+          "ติดตั้งระบบเรียบร้อยแล้ว", 
+        user 
+      });
+    } catch (error) {
+      console.error('Installation error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || "เกิดข้อผิดพลาดในการติดตั้งระบบ" 
+      });
+    }
   });
   
   // หน้าแก้ไขปัญหาการเข้าสู่ระบบ
@@ -209,6 +340,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   });
   
+  // API สำหรับตรวจสอบหรือติดตั้งข้อมูลตัวอย่าง
+  app.post('/api/demo-data', async (req, res) => {
+    try {
+      const { action } = req.body;
+      
+      if (action === 'install') {
+        // ดำเนินการติดตั้งข้อมูลตัวอย่าง
+        console.log('กำลังติดตั้งข้อมูลตัวอย่างผ่าน API...');
+        await setupDemoData(true);
+        return res.status(200).json({ 
+          success: true, 
+          message: "ติดตั้งข้อมูลตัวอย่างเรียบร้อยแล้ว"
+        });
+      } else if (action === 'status') {
+        // ตรวจสอบสถานะข้อมูลตัวอย่าง
+        const products = await storage.getProducts();
+        const categories = await storage.getAllCategories();
+        const customizationOptions = await storage.getCustomizationOptions();
+        
+        return res.status(200).json({
+          success: true,
+          status: {
+            hasProducts: products.length > 0,
+            hasCategories: categories.length > 0,
+            hasCustomizationOptions: customizationOptions.length > 0,
+            productsCount: products.length,
+            categoriesCount: categories.length,
+            customizationOptionsCount: customizationOptions.length
+          }
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "ไม่รู้จัก action ที่ระบุ (ใช้ 'install' หรือ 'status')"
+        });
+      }
+    } catch (error) {
+      console.error('Demo data API error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || "เกิดข้อผิดพลาดในการจัดการข้อมูลตัวอย่าง" 
+      });
+    }
+  });
+  
   // API สำหรับตรวจสอบสถานะการเชื่อมต่อฐานข้อมูล
   app.get('/api/db-health', async (req, res) => {
     try {
@@ -228,6 +404,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         status: 'error', 
         message: error.message || 'Database connection check failed' 
+      });
+    }
+  });
+  
+  // API สำหรับรีเซ็ตระบบ (ลบตั้งค่าและข้อมูลในฐานข้อมูล)
+  app.post('/api/reset-system', async (req, res) => {
+    try {
+      // ใช้ process.cwd() แทนการใช้ __dirname เพื่อความง่าย
+      const envLocalPath = path.join(process.cwd(), '.env.local');
+      let resetSuccessful = false;
+      
+      // 1. ลบไฟล์ .env.local ถ้ามี
+      if (fs.existsSync(envLocalPath)) {
+        fs.unlinkSync(envLocalPath);
+        console.log('ลบไฟล์ .env.local เรียบร้อยแล้ว');
+        resetSuccessful = true;
+      } else {
+        console.log('ไม่พบไฟล์ .env.local');
+      }
+      
+      // 2. รีเซ็ตข้อมูลในฐานข้อมูลแบบจริงจัง (complete hard reset)
+      try {
+        console.log('กำลังดำเนินการรีเซ็ตระบบอย่างสมบูรณ์...');
+        
+        // 2.1 รีเซ็ตข้อมูลร้านค้าและตั้งค่า
+        try {
+          console.log('กำลังรีเซ็ตการตั้งค่าระบบ...');
+          // รีเซ็ตชื่อร้าน
+          const storeSetting = await storage.getSetting('store_name');
+          if (storeSetting) {
+            await storage.createOrUpdateSetting('store_name', '', 'ชื่อร้าน (รีเซ็ตแล้ว)');
+            console.log('รีเซ็ตชื่อร้านเรียบร้อยแล้ว');
+          }
+          
+          // รีเซ็ตสถานะร้าน
+          await storage.createOrUpdateSetting('store_status', 'closed', 'สถานะการเปิดให้บริการ (รีเซ็ตแล้ว)');
+          console.log('รีเซ็ตสถานะร้านเรียบร้อยแล้ว');
+          
+          resetSuccessful = true;
+        } catch (settingsError) {
+          console.error('เกิดข้อผิดพลาดในการรีเซ็ตการตั้งค่า:', settingsError);
+        }
+        
+        // 2.2 รีเซ็ตข้อมูลผู้ใช้ทั้งหมด
+        try {
+          console.log('กำลังรีเซ็ตข้อมูลผู้ใช้งาน...');
+          const allUsers = await storage.getUsers();
+          if (allUsers.length > 0) {
+            console.log(`พบผู้ใช้งานทั้งหมด ${allUsers.length} คน กำลังรีเซ็ต...`);
+            // ไม่ลบจริงๆ แต่ทำเครื่องหมายว่าไม่ใช้งานทุกคน
+            for (const user of allUsers) {
+              await storage.updateUser(user.id, { active: false });
+              console.log(`รีเซ็ตผู้ใช้ ${user.username} เรียบร้อยแล้ว`);
+            }
+            resetSuccessful = true;
+          } else {
+            console.log('ไม่พบผู้ใช้งานในระบบ ไม่จำเป็นต้องรีเซ็ต');
+          }
+        } catch (usersError) {
+          console.error('เกิดข้อผิดพลาดในการรีเซ็ตผู้ใช้งาน:', usersError);
+        }
+        
+        // 2.3 ล้างหรือยกเลิกข้อมูลสินค้า
+        try {
+          console.log('กำลังยกเลิกการใช้งานสินค้าทั้งหมด...');
+          const products = await storage.getProducts();
+          for (const product of products) {
+            await storage.updateProduct(product.id, { active: false });
+          }
+          console.log(`ยกเลิกการใช้งานสินค้าทั้งหมด ${products.length} รายการเรียบร้อยแล้ว`);
+          resetSuccessful = true;
+        } catch (productsError) {
+          console.error('เกิดข้อผิดพลาดในการรีเซ็ตสินค้า:', productsError);
+        }
+      } catch (dbResetError) {
+        console.error('เกิดข้อผิดพลาดในการรีเซ็ตข้อมูลในฐานข้อมูล:', dbResetError);
+        // ถึงแม้จะเกิดข้อผิดพลาดในส่วนนี้ เราจะไม่หยุดการทำงานของฟังก์ชัน
+      }
+      
+      if (resetSuccessful) {
+        return res.status(200).json({ 
+          success: true, 
+          message: 'รีเซ็ตระบบเรียบร้อยแล้ว กรุณารีสตาร์ทแอปพลิเคชันและเข้าสู่หน้าติดตั้งใหม่' 
+        });
+      } else {
+        // แม้จะไม่มีการเปลี่ยนแปลงใดๆ แต่เราจะตอบกลับว่าสำเร็จเพื่อให้ผู้ใช้สามารถดำเนินการต่อได้
+        return res.status(200).json({ 
+          success: true, 
+          message: 'ไม่พบข้อมูลที่ต้องรีเซ็ต แต่คุณสามารถติดตั้งระบบใหม่ได้เลย' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Error resetting system:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'เกิดข้อผิดพลาดในการรีเซ็ตระบบ' 
       });
     }
   });
@@ -272,10 +544,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API สำหรับดึงข้อมูลการตั้งค่าตาม key
   app.get('/api/settings/:key', async (req, res) => {
     try {
-      const setting = await storage.getSetting(req.params.key);
+      const { key } = req.params;
+      const setting = await storage.getSetting(key);
+      
+      // สำหรับการตั้งค่าบางอย่างที่มักจะถูกเรียกใช้ แต่อาจยังไม่มีในฐานข้อมูล
+      // ให้ส่งค่าเริ่มต้นกลับไปแทนที่จะส่ง 404
+      const commonSettings = [
+        'store_theme', 'phone_number', 'address', 'custom_logo'
+      ];
+      
+      if (!setting && commonSettings.includes(key)) {
+        return res.json({ key, value: null });
+      }
+      
       if (!setting) {
         return res.status(404).json({ error: 'ไม่พบข้อมูลการตั้งค่านี้' });
       }
+      
       return res.status(200).json(setting);
     } catch (error) {
       console.error('Error fetching setting:', error);
@@ -289,10 +574,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // กำหนด Content-Type เป็น application/json เพื่อให้มั่นใจว่าจะได้ JSON กลับมาเสมอ
       res.setHeader('Content-Type', 'application/json');
       
-      const setting = await storage.getSetting(req.params.key);
+      const { key } = req.params;
+      const setting = await storage.getSetting(key);
+      
+      // สำหรับการตั้งค่าบางอย่างที่มักจะถูกเรียกใช้ แต่อาจยังไม่มีในฐานข้อมูล
+      // ให้ส่งค่าเริ่มต้นกลับไปแทนที่จะส่ง 404
+      const commonSettings = [
+        'store_theme', 'phone_number', 'address', 'custom_logo'
+      ];
+      
+      if (!setting && commonSettings.includes(key)) {
+        return res.json({ value: null });
+      }
+      
       if (!setting) {
         return res.status(404).json({ error: 'ไม่พบข้อมูลการตั้งค่านี้' });
       }
+      
       return res.status(200).json({ value: setting.value });
     } catch (error) {
       console.error('Error fetching setting value:', error);
@@ -563,7 +861,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Add Global Error Handler
+  // Add Global Error Handler and JSON Response Middleware
+  // Middleware to ensure proper JSON responses
+  app.use((req, res, next) => {
+    // Store the original json method
+    const originalJson = res.json;
+    
+    // Override the json method
+    res.json = function(body) {
+      try {
+        // Make sure body is serializable
+        const serializedBody = JSON.stringify(body);
+        // Make sure we can parse it back - this helps catch any hidden circular references
+        JSON.parse(serializedBody);
+        
+        // Set proper content type
+        res.set('Content-Type', 'application/json');
+        
+        // Call the original json method with validated data
+        return originalJson.call(this, body);
+      } catch (error) {
+        console.error("JSON serialization error:", error, body);
+        // If there is an error in serialization, return a safe response
+        if (Array.isArray(body)) {
+          return originalJson.call(this, []);
+        } else if (body === null || body === undefined) {
+          return originalJson.call(this, null);
+        } else {
+          return originalJson.call(this, { error: "Error serializing response" });
+        }
+      }
+    };
+    
+    next();
+  });
+
+  // API endpoint สำหรับดึงข้อมูลส่วนผสมของสินค้า
+  app.all("/api/products/:id/ingredients", async (req, res) => {
+    try {
+      console.log("Fetching ingredients for product ID:", req.params.id);
+      const id = parseInt(req.params.id);
+      
+      // ตรวจสอบว่ามีสินค้านี้หรือไม่
+      const product = await storage.getProduct(id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // ดึงข้อมูลส่วนผสม
+      const ingredients = await storage.getProductIngredients(id);
+      console.log("Retrieved ingredients:", ingredients);
+      
+      return res.json(ingredients);
+    } catch (error: any) {
+      console.error("Error fetching product ingredients:", error);
+      return res.status(500).json({ message: error.message || "Error fetching product ingredients" });
+    }
+  });
+
+  // Global error handler
   app.use((err: any, req: Request, res: Response, next: any) => {
     console.error("Global error handler:", err);
     
@@ -590,11 +946,482 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Create HTTP Server (for WebSockets)
+  // Products API Endpoints
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      res.json(products);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ message: error.message || "Error fetching products" });
+    }
+  });
+
+  app.get("/api/products/category/:category", async (req, res) => {
+    try {
+      const { category } = req.params;
+      const products = await storage.getProductsByCategory(category);
+      res.json(products);
+    } catch (error: any) {
+      console.error("Error fetching products by category:", error);
+      res.status(500).json({ message: error.message || "Error fetching products by category" });
+    }
+  });
+
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const product = await storage.getProductWithIngredients(id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error: any) {
+      console.error("Error fetching product details:", error);
+      res.status(500).json({ message: error.message || "Error fetching product details" });
+    }
+  });
+  
+  app.get("/api/products/:id/ingredients", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const ingredients = await storage.getProductIngredients(id);
+      res.json(ingredients);
+    } catch (error: any) {
+      console.error("Error fetching product ingredients:", error);
+      res.status(500).json({ message: error.message || "Error fetching product ingredients" });
+    }
+  });
+
+  // Users API Endpoints
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      // ไม่ส่งข้อมูลรหัสผ่านกลับไป
+      const safeUsers = users.map(({ password, ...rest }) => rest);
+      res.json(safeUsers);
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: error.message || "Error fetching users" });
+    }
+  });
+
+  // Customization Options API Endpoints
+  app.get("/api/customization-options", async (req, res) => {
+    try {
+      const options = await storage.getCustomizationOptions();
+      res.json(options);
+    } catch (error: any) {
+      console.error("Error fetching customization options:", error);
+      res.status(500).json({ message: error.message || "Error fetching customization options" });
+    }
+  });
+
+  app.get("/api/customization-types", async (req, res) => {
+    try {
+      const types = await storage.getAllCustomizationTypes();
+      res.json(types);
+    } catch (error: any) {
+      console.error("Error fetching customization types:", error);
+      res.status(500).json({ message: error.message || "Error fetching customization types" });
+    }
+  });
+  
+  // ✓ แก้ไขโดยใช้ app.all แทน เพื่อรองรับทุก HTTP method
+  app.all("/api/customization-types/display-names", async (req, res) => {
+    try {
+      console.log("รับคำขอสำหรับชื่อที่แสดงของประเภทการปรับแต่ง");
+      const typeLabels = await storage.getCustomizationTypeLabels();
+      console.log("ชื่อที่แสดงของประเภทการปรับแต่ง:", typeLabels);
+      return res.json(typeLabels);
+    } catch (error: any) {
+      console.error("เกิดข้อผิดพลาดในการดึงชื่อที่แสดงของประเภทการปรับแต่ง:", error);
+      return res.status(500).json({ message: error.message || "เกิดข้อผิดพลาดในการดึงชื่อที่แสดงของประเภทการปรับแต่ง" });
+    }
+  });
+
+  app.get("/api/customization-type-settings", async (req, res) => {
+    try {
+      const settings = await storage.getAllCustomizationTypeSettings();
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching customization type settings:", error);
+      res.status(500).json({ message: error.message || "Error fetching customization type settings" });
+    }
+  });
+
+  // Inventory API Endpoints
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      const inventory = await storage.getInventoryItems();
+      res.json(inventory);
+    } catch (error: any) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ message: error.message || "Error fetching inventory" });
+    }
+  });
+
+  // Members API Endpoints
+  app.get("/api/members", async (req, res) => {
+    try {
+      const members = await storage.getMembers();
+      res.json(members);
+    } catch (error: any) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ message: error.message || "Error fetching members" });
+    }
+  });
+
+  // Categories API Endpoint
+  app.use("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      console.log("Requested categories, returning:", categories);
+      return res.json(categories);
+    } catch (error: any) {
+      console.error("Error fetching categories:", error);
+      return res.status(500).json({ message: error.message || "Error fetching categories" });
+    }
+  });
+
+  // Promotions API Endpoints
+  app.get("/api/promotions", async (req, res) => {
+    try {
+      const promotions = await storage.getPromotions();
+      res.json(promotions);
+    } catch (error: any) {
+      console.error("Error fetching promotions:", error);
+      res.status(500).json({ message: error.message || "Error fetching promotions" });
+    }
+  });
+
+  // Orders API Endpoints
+  app.get("/api/orders", async (req, res) => {
+    try {
+      const orders = await storage.getOrders();
+      res.json(orders);
+    } catch (error: any) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ message: error.message || "Error fetching orders" });
+    }
+  });
+  
+  // Customer Orders API Endpoint - สำหรับการส่งคำสั่งซื้อจากหน้าลูกค้า
+  app.post("/api/customer/orders", async (req, res) => {
+    try {
+      console.log("รับคำขอสร้างออเดอร์จากลูกค้า:", req.body);
+      
+      // ตรวจสอบข้อมูล
+      if (!req.body.items || !Array.isArray(req.body.items) || req.body.items.length === 0) {
+        return res.status(400).json({ error: "ข้อมูลรายการสินค้าไม่ถูกต้อง" });
+      }
+      
+      // สร้างข้อมูลออเดอร์
+      const orderData = {
+        status: "pending",
+        orderDate: new Date(),
+        total: req.body.total || 0,
+        discount: req.body.discount || 0,
+        finalTotal: (req.body.total || 0) - (req.body.discount || 0),
+        paymentMethod: req.body.paymentMethod || "cash",
+        paymentStatus: "pending",
+        referenceId: req.body.referenceId || null,
+        memberId: req.body.memberId || null,
+        pointsEarned: 0, // จะคำนวณและอัปเดตภายหลัง
+        usePoints: req.body.usePoints || false,
+        pointsUsed: req.body.pointsUsed || 0,
+        pointsPromotionId: req.body.pointsPromotion || null,
+        staffId: null, // ออเดอร์จากลูกค้าไม่มี staffId
+        type: "online" // ระบุประเภทเป็นออนไลน์
+      };
+      
+      // สร้างข้อมูลรายการสินค้า
+      const orderItems = req.body.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        customizations: item.customizations || {},
+        subtotal: item.price * item.quantity
+      }));
+      
+      // บันทึกข้อมูลลงในฐานข้อมูล
+      console.log("กำลังสร้างออเดอร์ลูกค้า:", orderData);
+      const newOrder = await storage.createOrder(orderData, orderItems);
+      console.log("สร้างออเดอร์ลูกค้าสำเร็จ:", newOrder.id);
+      
+      // ถ้ามีการใช้แต้มสะสม ลดแต้มของสมาชิก
+      if (orderData.usePoints && orderData.memberId && orderData.pointsUsed > 0) {
+        try {
+          await storage.addMemberPoints(orderData.memberId, -orderData.pointsUsed);
+          console.log(`หักแต้มสะสม ${orderData.pointsUsed} แต้ม จากสมาชิก ID ${orderData.memberId}`);
+        } catch (pointsError) {
+          console.error("ไม่สามารถหักแต้มสะสมได้:", pointsError);
+          // ไม่ต้องยกเลิกออเดอร์ แต่บันทึกข้อผิดพลาดไว้
+        }
+      }
+      
+      // แจ้งเตือนแบบเรียลไทม์ผ่าน Socket.IO
+      try {
+        // นำเข้าฟังก์ชันจาก realtime.js แบบไดนามิก
+        const { emitOrderUpdate } = await import('./realtime.js');
+        if (typeof emitOrderUpdate === 'function') {
+          emitOrderUpdate(newOrder.id);
+        }
+      } catch (socketError) {
+        console.error("ไม่สามารถส่งการแจ้งเตือนแบบเรียลไทม์ได้:", socketError);
+        // ไม่ต้องยกเลิกออเดอร์หากไม่สามารถส่งการแจ้งเตือนได้
+      }
+      
+      // ส่งผลลัพธ์กลับ
+      res.status(201).json(newOrder);
+    } catch (error: any) {
+      console.error("เกิดข้อผิดพลาดในการสร้างออเดอร์ลูกค้า:", error);
+      res.status(500).json({ error: error.message || "เกิดข้อผิดพลาดในการสร้างออเดอร์" });
+    }
+  });
+
+  app.get("/api/orders/date-range", async (req, res) => {
+    try {
+      const startDateStr = req.query.startDate as string;
+      const endDateStr = req.query.endDate as string;
+      
+      if (!startDateStr || !endDateStr) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      
+      // สร้างวันเริ่มต้นโดยกำหนดเวลาเป็น 00:00:00
+      const startDate = new Date(startDateStr);
+      startDate.setHours(0, 0, 0, 0);
+      
+      // สร้างวันสิ้นสุดโดยกำหนดเวลาเป็น 23:59:59
+      const endDate = new Date(endDateStr);
+      endDate.setHours(23, 59, 59, 999);
+      
+      const orders = await storage.getOrdersByDateRange(startDate, endDate);
+      res.json(orders);
+    } catch (error: any) {
+      console.error("Error fetching orders by date range:", error);
+      res.status(500).json({ message: error.message || "Error fetching orders by date range" });
+    }
+  });
+
+  app.get("/api/orders/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const order = await storage.getOrderWithItems(id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error fetching order details:", error);
+      res.status(500).json({ message: error.message || "Error fetching order details" });
+    }
+  });
+
+  // Analytics endpoints
+  app.get("/api/analytics/popular-products", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 5;
+      const popularProducts = await storage.getPopularProducts(limit);
+      res.json(popularProducts);
+    } catch (error: any) {
+      console.error("Error fetching popular products:", error);
+      res.status(500).json({ message: error.message || "Error fetching popular products" });
+    }
+  });
+
+  app.get("/api/analytics/daily-sales", async (req, res) => {
+    try {
+      const dateStr = req.query.date as string;
+      const date = dateStr ? new Date(dateStr) : new Date();
+      const dailySales = await storage.getDailySales(date);
+      res.json({ date: date.toISOString().split('T')[0], sales: dailySales });
+    } catch (error: any) {
+      console.error("Error fetching daily sales:", error);
+      res.status(500).json({ message: error.message || "Error fetching daily sales" });
+    }
+  });
+
+  app.get("/api/analytics/low-stock", async (req, res) => {
+    try {
+      const lowStockItems = await storage.getLowStockItems();
+      res.json(lowStockItems);
+    } catch (error: any) {
+      console.error("Error fetching low stock items:", error);
+      res.status(500).json({ message: error.message || "Error fetching low stock items" });
+    }
+  });
+
+  app.get("/api/analytics/product-usage", async (req, res) => {
+    try {
+      const productUsage = await storage.getProductUsageReport();
+      res.json(productUsage);
+    } catch (error: any) {
+      console.error("Error fetching product usage report:", error);
+      res.status(500).json({ message: error.message || "Error fetching product usage report" });
+    }
+  });
+
+  // Member Points System endpoints
+  app.get("/api/point-settings", async (req, res) => {
+    try {
+      const pointSettings = await storage.getPointSettings();
+      res.json(pointSettings);
+    } catch (error: any) {
+      console.error("Error fetching point settings:", error);
+      res.status(500).json({ message: error.message || "Error fetching point settings" });
+    }
+  });
+
+  app.get("/api/point-settings/active", async (req, res) => {
+    try {
+      const activeSetting = await storage.getActivePointSetting();
+      if (!activeSetting) {
+        return res.status(404).json({ message: "No active point setting found" });
+      }
+      res.json(activeSetting);
+    } catch (error: any) {
+      console.error("Error fetching active point setting:", error);
+      res.status(500).json({ message: error.message || "Error fetching active point setting" });
+    }
+  });
+
+  app.post("/api/point-settings", async (req, res) => {
+    try {
+      const newSetting = await storage.createPointSetting(req.body);
+      res.status(201).json(newSetting);
+    } catch (error: any) {
+      console.error("Error creating point setting:", error);
+      res.status(500).json({ message: error.message || "Error creating point setting" });
+    }
+  });
+
+  app.patch("/api/point-settings/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedSetting = await storage.updatePointSetting(id, req.body);
+      if (!updatedSetting) {
+        return res.status(404).json({ message: "Point setting not found" });
+      }
+      res.json(updatedSetting);
+    } catch (error: any) {
+      console.error("Error updating point setting:", error);
+      res.status(500).json({ message: error.message || "Error updating point setting" });
+    }
+  });
+
+  app.delete("/api/point-settings/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePointSetting(id);
+      if (!success) {
+        return res.status(404).json({ message: "Point setting not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting point setting:", error);
+      res.status(500).json({ message: error.message || "Error deleting point setting" });
+    }
+  });
+
+  app.get("/api/point-redemption-rules", async (req, res) => {
+    try {
+      const rules = await storage.getPointRedemptionRules();
+      res.json(rules);
+    } catch (error: any) {
+      console.error("Error fetching point redemption rules:", error);
+      res.status(500).json({ message: error.message || "Error fetching point redemption rules" });
+    }
+  });
+
+  app.get("/api/point-redemption-rules/active", async (req, res) => {
+    try {
+      const activeRules = await storage.getActivePointRedemptionRules();
+      res.json(activeRules);
+    } catch (error: any) {
+      console.error("Error fetching active point redemption rules:", error);
+      res.status(500).json({ message: error.message || "Error fetching active point redemption rules" });
+    }
+  });
+
+  app.get("/api/point-redemption-rules/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rule = await storage.getPointRedemptionRule(id);
+      if (!rule) {
+        return res.status(404).json({ message: "Point redemption rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error fetching point redemption rule:", error);
+      res.status(500).json({ message: error.message || "Error fetching point redemption rule" });
+    }
+  });
+
+  app.post("/api/point-redemption-rules", async (req, res) => {
+    try {
+      const newRule = await storage.createPointRedemptionRule(req.body);
+      res.status(201).json(newRule);
+    } catch (error: any) {
+      console.error("Error creating point redemption rule:", error);
+      res.status(500).json({ message: error.message || "Error creating point redemption rule" });
+    }
+  });
+
+  app.patch("/api/point-redemption-rules/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedRule = await storage.updatePointRedemptionRule(id, req.body);
+      if (!updatedRule) {
+        return res.status(404).json({ message: "Point redemption rule not found" });
+      }
+      res.json(updatedRule);
+    } catch (error: any) {
+      console.error("Error updating point redemption rule:", error);
+      res.status(500).json({ message: error.message || "Error updating point redemption rule" });
+    }
+  });
+
+  app.delete("/api/point-redemption-rules/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePointRedemptionRule(id);
+      if (!success) {
+        return res.status(404).json({ message: "Point redemption rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting point redemption rule:", error);
+      res.status(500).json({ message: error.message || "Error deleting point redemption rule" });
+    }
+  });
+
+  app.get("/api/point-redemption-options", async (req, res) => {
+    try {
+      const memberId = parseInt(req.query.memberId as string);
+      const orderTotal = parseFloat(req.query.orderTotal as string);
+
+      if (isNaN(memberId) || isNaN(orderTotal)) {
+        return res.status(400).json({ message: "Invalid memberId or orderTotal" });
+      }
+
+      const options = await storage.getAvailableRedemptionOptions(memberId, orderTotal);
+      res.json(options);
+    } catch (error: any) {
+      console.error("Error fetching redemption options:", error);
+      res.status(500).json({ message: error.message || "Error fetching redemption options" });
+    }
+  });
+
+  // Create HTTP Server (for Socket.IO)
   const httpServer = createServer(app);
 
-  // Initialize WebSocket Server with a specific path (/ws)
-  // This prevents conflicts with Vite's WebSocket on development
+  // ตั้งค่า Socket.IO เพื่อการสื่อสารแบบ real-time
+  setupSocketIO(httpServer);
+
+  // เก็บ WebSocket เดิมไว้เพื่อความเข้ากันได้กับโค้ดเดิม
+  // แต่ควรใช้ Socket.IO แทนสำหรับการพัฒนาเพิ่มเติม
   const wss = new WebSocketServer({ 
     server: httpServer, 
     path: '/ws'  // ระบุ path ที่เฉพาะเจาะจงเพื่อไม่ให้ชนกับ Vite WebSocket

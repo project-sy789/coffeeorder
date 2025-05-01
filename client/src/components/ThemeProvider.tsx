@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useSocketTheme } from '@/hooks/useSocketQuery';
 
 interface ThemeData {
   variant: string;
@@ -10,19 +9,12 @@ interface ThemeData {
 }
 
 export default function ThemeProvider() {
-  // Fetch theme data
-  const { data: themeData } = useQuery<ThemeData>({
-    queryKey: ['/api/theme'],
-    queryFn: async () => {
-      const { data } = await apiRequest('GET', '/api/theme');
-      return data;
-    },
-    refetchInterval: 5000, // Check for theme updates every 5 seconds
-  });
+  // Fetch theme data using Socket.IO
+  const { data: themeData, isSuccess } = useSocketTheme<ThemeData>();
 
   // Apply theme when data changes
   useEffect(() => {
-    if (themeData && themeData.primary) {
+    if (isSuccess && themeData && themeData.primary) {
       // Update the CSS variable for primary color
       document.documentElement.style.setProperty('--primary', extractHSLValues(themeData.primary));
       
@@ -33,9 +25,9 @@ export default function ThemeProvider() {
       // Update ring color to match primary
       document.documentElement.style.setProperty('--ring', extractHSLValues(themeData.primary));
       
-      console.log('Theme updated:', themeData.primary);
+      console.log('Theme updated via Socket.IO:', themeData.primary);
     }
-  }, [themeData]);
+  }, [themeData, isSuccess]);
 
   return null; // This is a utility component, no UI needed
 }

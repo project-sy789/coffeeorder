@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useSocketQuery, useSocketMutation } from "@/hooks/useSocketQuery";
 import { 
   Tag, 
   Calendar as CalendarIcon, 
@@ -121,18 +121,20 @@ export default function PromotionManagement() {
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
-  // Fetch promotions
-  const { data: promotions = [], refetch } = useQuery<Promotion[]>({
-    queryKey: ["/api/promotions"],
-  });
+  // Fetch promotions ด้วย Socket.IO
+  const { data: promotions = [], refetch } = useSocketQuery<Promotion[]>(
+    'getPromotions',
+    {}
+  );
 
-  // Fetch products for selection
-  const { data: products = [] } = useQuery({
-    queryKey: ["/api/products"],
-  });
+  // Fetch products for selection ด้วย Socket.IO
+  const { data: products = [] } = useSocketQuery(
+    'getProducts',
+    {}
+  );
 
   // Filter promotions based on active tab
-  const filteredPromotions = promotions.filter(promo => {
+  const filteredPromotions = promotions && Array.isArray(promotions) ? promotions.filter(promo => {
     const now = new Date();
     const start = new Date(promo.startDate);
     const end = new Date(promo.endDate);
@@ -145,15 +147,12 @@ export default function PromotionManagement() {
       default:
         return true;
     }
-  });
+  }) : [];
 
-  // Add promotion mutation
-  const addPromotionMutation = useMutation({
-    mutationFn: async (data: Partial<Promotion>) => {
-      await apiRequest('POST', '/api/promotions', data);
-    },
+  // Add promotion mutation ด้วย Socket.IO
+  const addPromotionMutation = useSocketMutation<Partial<Promotion>, any>('createPromotion', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['getPromotions'] });
       toast({
         title: "เพิ่มโปรโมชั่นสำเร็จ",
         description: `เพิ่มโปรโมชั่น ${formData.name} แล้ว`,
@@ -170,14 +169,10 @@ export default function PromotionManagement() {
     }
   });
 
-  // Update promotion mutation
-  const updatePromotionMutation = useMutation({
-    mutationFn: async (data: Partial<Promotion>) => {
-      if (!selectedPromotion) return;
-      await apiRequest('PATCH', `/api/promotions/${selectedPromotion.id}`, data);
-    },
+  // Update promotion mutation ด้วย Socket.IO
+  const updatePromotionMutation = useSocketMutation<{id: number, data: Partial<Promotion>}, any>('updatePromotion', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['getPromotions'] });
       toast({
         title: "อัปเดตโปรโมชั่นสำเร็จ",
         description: `อัปเดตโปรโมชั่น ${formData.name} แล้ว`,
@@ -194,13 +189,10 @@ export default function PromotionManagement() {
     }
   });
 
-  // Delete promotion mutation
-  const deletePromotionMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/promotions/${id}`);
-    },
+  // Delete promotion mutation ด้วย Socket.IO
+  const deletePromotionMutation = useSocketMutation<number, any>('deletePromotion', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/promotions'] });
+      queryClient.invalidateQueries({ queryKey: ['getPromotions'] });
       toast({
         title: "ลบโปรโมชั่นสำเร็จ",
         description: "ลบโปรโมชั่นแล้ว",
@@ -304,8 +296,21 @@ export default function PromotionManagement() {
       // Validate form data
       promotionSchema.parse(formData);
       
-      // Submit the form
-      updatePromotionMutation.mutate(formData);
+      // ตรวจสอบว่ามีโปรโมชั่นที่เลือกอยู่หรือไม่
+      if (!selectedPromotion) {
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: "ไม่พบข้อมูลโปรโมชั่นที่ต้องการแก้ไข",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // ส่งข้อมูลตามรูปแบบที่ Socket.IO คาดหวัง
+      updatePromotionMutation.mutate({ 
+        id: selectedPromotion.id, 
+        data: formData 
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errorMessage = error.errors[0]?.message || "ข้อมูลไม่ถูกต้อง";
@@ -380,7 +385,7 @@ export default function PromotionManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPromotions.length === 0 ? (
+              {!filteredPromotions || filteredPromotions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-6">
                     ไม่พบข้อมูลโปรโมชั่น

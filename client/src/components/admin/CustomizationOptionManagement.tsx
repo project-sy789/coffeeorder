@@ -5,6 +5,10 @@ import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { CustomizationOption } from '@shared/schema';
+import { 
+  useSocketQuery, 
+  useSocketMutation 
+} from '@/hooks/useSocketQuery';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -130,35 +134,46 @@ export default function CustomizationOptionManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Query for all customization options
-  const { data: options = [], isLoading } = useQuery({
-    queryKey: ['/api/customization-options'],
-    select: (data: CustomizationOption[]) => data,
-  });
-  
-  // Query for customization types
-  const { data: types = [] } = useQuery({
-    queryKey: ['/api/customization-types'],
-    select: (data) => {
-      if (Array.isArray(data)) {
-        return data.map(type => ({
-          value: type,
-          label: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')
-        }));
-      }
-      return [];
+  // Query for all customization options ด้วย Socket.IO
+  const { data: options = [], isLoading } = useSocketQuery<CustomizationOption[]>(
+    'getCustomizationOptions',
+    {},
+    {
+      select: (data: CustomizationOption[]) => data,
     }
-  });
+  );
   
-  // Query for customization type display names (Thai)
-  const { data: typeDisplayNames = {} as Record<string, string> } = useQuery<Record<string, string>>({
-    queryKey: ['/api/customization-types/display-names']
-  });
+  // Query for customization types ด้วย Socket.IO
+  const { data: types = [] } = useSocketQuery<string[]>(
+    'getCustomizationTypes',
+    {},
+    {
+      select: (data) => {
+        if (Array.isArray(data)) {
+          return data.map(type => ({
+            value: type,
+            label: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')
+          }));
+        }
+        return [];
+      }
+    }
+  );
   
-  // Query for customization type settings
-  const { data: typeSettingsData = {} as Record<string, { multipleSelection: boolean }> } = useQuery({
-    queryKey: ['/api/customization-type-settings']
-  });
+  // Query for customization type settings ด้วย Socket.IO
+  const { data: typeSettingsData = {} as Record<string, { multipleSelection: boolean }> } = useSocketQuery<Record<string, { multipleSelection: boolean }>>(
+    'getCustomizationTypeSettings',
+    {}
+  );
+  
+  // Query for customization type labels ด้วย Socket.IO
+  const { data: typeLabelsData = {} as Record<string, string> } = useSocketQuery<Record<string, string>>(
+    'getCustomizationTypeLabels',
+    {}
+  );
+  
+  // State สำหรับเก็บ type display names
+  const [typeDisplayNames, setTypeDisplayNames] = useState<Record<string, string>>({});
   
   // Update typeSettings when data changes
   useEffect(() => {
@@ -166,6 +181,13 @@ export default function CustomizationOptionManagement() {
       setTypeSettings(typeSettingsData as Record<string, { multipleSelection: boolean }>);
     }
   }, [typeSettingsData]);
+  
+  // Update typeDisplayNames when typeLabelsData changes
+  useEffect(() => {
+    if (typeLabelsData && Object.keys(typeLabelsData).length > 0) {
+      setTypeDisplayNames(typeLabelsData);
+    }
+  }, [typeLabelsData]);
   
   // ใช้ useEffect เพื่อจัดการกับ types ที่เปลี่ยนแปลง
   useEffect(() => {
@@ -213,14 +235,10 @@ export default function CustomizationOptionManagement() {
     },
   });
   
-  // Mutations
-  const addMutation = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const { data: response } = await apiRequest('POST', '/api/customization-options', data);
-      return response;
-    },
+  // Mutations ด้วย Socket.IO
+  const addMutation = useSocketMutation<FormValues, any>('createCustomizationOption', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
       toast({
         title: "เพิ่มตัวเลือกเรียบร้อย",
         description: "ตัวเลือกใหม่ถูกเพิ่มเข้าสู่ระบบแล้ว",
@@ -230,14 +248,9 @@ export default function CustomizationOptionManagement() {
     },
   });
   
-  const editMutation = useMutation({
-    mutationFn: async (data: FormValues & { id: number }) => {
-      const { id, ...rest } = data;
-      const { data: response } = await apiRequest('PUT', `/api/customization-options/${id}`, rest);
-      return response;
-    },
+  const editMutation = useSocketMutation<FormValues & { id: number }, any>('updateCustomizationOption', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
       toast({
         title: "แก้ไขตัวเลือกเรียบร้อย",
         description: "ตัวเลือกถูกแก้ไขเรียบร้อยแล้ว",
@@ -246,13 +259,9 @@ export default function CustomizationOptionManagement() {
     },
   });
   
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const { data } = await apiRequest('DELETE', `/api/customization-options/${id}`);
-      return data;
-    },
+  const deleteMutation = useSocketMutation<number, any>('deleteCustomizationOption', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
       toast({
         title: "ลบตัวเลือกเรียบร้อย",
         description: "ตัวเลือกถูกลบออกจากระบบเรียบร้อยแล้ว",
@@ -261,14 +270,11 @@ export default function CustomizationOptionManagement() {
     },
   });
   
-  // Type management mutations
-  const addTypeMutation = useMutation({
-    mutationFn: async (data: { type: string, label: string }) => {
-      return apiRequest('POST', '/api/customization-types', data);
-    },
+  // Type management mutations ด้วย Socket.IO
+  const addTypeMutation = useSocketMutation<{ type: string, label: string }, any>('createCustomizationType', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-types'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationTypes'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
       setIsAddTypeDialogOpen(false);
       addTypeForm.reset();
       toast({
@@ -285,13 +291,10 @@ export default function CustomizationOptionManagement() {
     },
   });
 
-  const updateTypeMutation = useMutation({
-    mutationFn: async (data: { oldType: string, newType: string, newLabel: string }) => {
-      return apiRequest('PATCH', '/api/customization-types', data);
-    },
+  const updateTypeMutation = useSocketMutation<{ oldType: string, newType: string, newLabel: string }, any>('updateCustomizationType', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-types'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationTypes'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
       setIsEditTypeDialogOpen(false);
       editTypeForm.reset();
       toast({
@@ -308,14 +311,11 @@ export default function CustomizationOptionManagement() {
     },
   });
 
-  const deleteTypeMutation = useMutation({
-    mutationFn: async (type: string) => {
-      return apiRequest('DELETE', `/api/customization-types/${encodeURIComponent(type)}`);
-    },
+  const deleteTypeMutation = useSocketMutation<string, any>('deleteCustomizationType', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-types'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-options'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-type-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationTypes'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationOptions'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationTypeSettings'] });
       setIsDeleteTypeDialogOpen(false);
       setTypeToDelete(null);
       toast({
@@ -332,13 +332,10 @@ export default function CustomizationOptionManagement() {
     },
   });
   
-  // Mutation for updating type settings
-  const updateTypeSettingsMutation = useMutation({
-    mutationFn: async ({ type, settings }: { type: string, settings: { multipleSelection: boolean } }) => {
-      return apiRequest('PUT', `/api/customization-type-settings/${type}`, settings);
-    },
+  // Mutation for updating type settings ด้วย Socket.IO
+  const updateTypeSettingsMutation = useSocketMutation<{ type: string, settings: { multipleSelection: boolean } }, any>('updateCustomizationTypeSettings', {
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customization-type-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['getCustomizationTypeSettings'] });
       toast({
         title: "อัปเดตการตั้งค่าเรียบร้อย",
         description: "การตั้งค่าหมวดหมู่ถูกอัปเดตเรียบร้อยแล้ว",
@@ -364,6 +361,9 @@ export default function CustomizationOptionManagement() {
   
   // Helper to get options by type
   const getOptionsByType = (type: string) => {
+    if (!options || !Array.isArray(options)) {
+      return [];
+    }
     return options.filter(option => option.type === type);
   };
   

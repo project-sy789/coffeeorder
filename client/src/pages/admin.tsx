@@ -99,37 +99,53 @@ export default function Admin({ user }: AdminProps) {
     setLocation("/");
   };
   
-  // Define pages here
+  // Define pages here with error handling
   const renderPage = () => {
-    switch (activePage) {
-      case "dashboard":
-        return <Dashboard />;
-      case "settings":
-        return <Settings />;
-      case "menu":
-        return <MenuManagement />;
-      case "customization-options":
-        return <CustomizationOptionManagement />;
-      case "orders":
-        return <OrderManagement />;
-      case "members":
-        return <MemberManagement />;
-      case "point-settings":
-        return <AdminPointSettings />;
-      case "staff":
-        return <StaffManagement />;
-      case "promotions":
-        return <PromotionManagement />;
-      case "sales-report":
-        return <SalesReport />;
-      case "inventory-report":
-        return <InventoryReport />;
-      case "product-ingredients":
-        return <ProductIngredientManagement />;
-      case "inventory-analytics":
-        return <InventoryAnalytics />;
-      default:
-        return <Dashboard />;
+    try {
+      switch (activePage) {
+        case "dashboard":
+          return <Dashboard />;
+        case "settings":
+          return <Settings />;
+        case "menu":
+          return <MenuManagement />;
+        case "customization-options":
+          return <CustomizationOptionManagement />;
+        case "orders":
+          return <OrderManagement />;
+        case "members":
+          return <MemberManagement />;
+        case "point-settings":
+          return <AdminPointSettings />;
+        case "staff":
+          return <StaffManagement />;
+        case "promotions":
+          return <PromotionManagement />;
+        case "sales-report":
+          return <SalesReport />;
+        case "inventory-report":
+          return <InventoryReport />;
+        case "product-ingredients":
+          return <ProductIngredientManagement />;
+        case "inventory-analytics":
+          return <InventoryAnalytics />;
+        default:
+          return <Dashboard />;
+      }
+    } catch (error) {
+      console.error(`Error rendering page ${activePage}:`, error);
+      return (
+        <div className="p-6">
+          <h2 className="text-xl font-bold mb-4 text-red-600">เกิดข้อผิดพลาดในการแสดงหน้า {activePage}</h2>
+          <p className="mb-4">กรุณาลองรีเฟรชหน้าเว็บหรือติดต่อผู้ดูแลระบบ</p>
+          <button 
+            onClick={() => setActivePage("dashboard")}
+            className="bg-[var(--coffee-primary)] text-white px-4 py-2 rounded"
+          >
+            กลับไปหน้าแดชบอร์ด
+          </button>
+        </div>
+      );
     }
   };
 

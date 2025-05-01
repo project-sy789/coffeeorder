@@ -10,6 +10,13 @@ import { Product, CustomizationOption, Member } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ProductWithEditData } from "@/products";
+import { 
+  useSocketProducts, 
+  useSocketCategories, 
+  useSocketCustomizationOptions,
+  useSocketSettingValue
+} from "@/hooks/useSocketQuery";
+import { registerRole } from "@/lib/socket";
 
 interface POSProps {
   user: {
@@ -54,29 +61,41 @@ export default function POS({ user }: POSProps) {
   
   const { cart, addToCart, updateCartItem, removeFromCart, clearCart } = useCart();
   
-  const { data: products = [], isLoading: loadingProducts } = useQuery<Product[]>({
-    queryKey: ['/api/products'],
-  });
+  // ลงทะเบียนบทบาทของผู้ใช้เป็น staff
+  useEffect(() => {
+    if (user) {
+      // ต้องเป็นค่าที่กำหนดใน registerRole เท่านั้น
+      const userRole = user.role === 'admin' ? 'admin' : 'staff';
+      registerRole(userRole as 'admin' | 'staff' | 'customer');
+    }
+  }, [user]);
+  
+  // ใช้ Socket.IO hooks แทนการเรียก API โดยตรง
+  const { 
+    data: products = [], 
+    isLoading: loadingProducts 
+  } = useSocketProducts<Product[]>();
 
-  // Get store name from API
-  const { data: storeName = "ร้านกาแฟ" } = useQuery<string>({
-    queryKey: ['/api/settings/value/store_name'],
-    select: (data: any) => data?.value || "ร้านกาแฟ",
-  });
+  // ใช้ Socket.IO hook สำหรับการตั้งค่าชื่อร้าน
+  const { 
+    data: storeNameSetting = "ร้านกาแฟ" 
+  } = useSocketSettingValue<string>('store_name');
   
-  // Get store status from API
-  const { data: storeStatus = "open" } = useQuery<string>({
-    queryKey: ['/api/settings/value/store_status'],
-    select: (data: any) => data?.value || "open",
-  });
+  // ใช้ค่าจาก Socket.IO หรือค่าเริ่มต้น
+  const storeName = storeNameSetting || "ร้านกาแฟ";
   
-  // Get unique categories from API
-  const { data: categoriesData = [] } = useQuery<string[]>({
-    queryKey: ['/api/categories'],
-  });
+  // ใช้ Socket.IO hook สำหรับการตั้งค่าสถานะร้าน
+  const { 
+    data: storeStatusSetting = "open" 
+  } = useSocketSettingValue<string>('store_status');
   
-  // Use the categories list
-  const categories = categoriesData;
+  // ใช้ค่าจาก Socket.IO หรือค่าเริ่มต้น
+  const storeStatus = storeStatusSetting || "open";
+  
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลหมวดหมู่
+  const { 
+    data: categories = []
+  } = useSocketCategories<string[]>();
   
   // Set the active category to the first category in the list when categories are loaded
   useEffect(() => {
@@ -85,9 +104,10 @@ export default function POS({ user }: POSProps) {
     }
   }, [categories, activeCategory]);
   
-  const { data: customizationOptions = [] } = useQuery<CustomizationOption[]>({
-    queryKey: ['/api/customization-options'],
-  });
+  // ใช้ Socket.IO hook สำหรับดึงข้อมูลตัวเลือกปรับแต่ง
+  const { 
+    data: customizationOptions = [] 
+  } = useSocketCustomizationOptions<CustomizationOption[]>();
   
   const filteredProducts = products.filter(
     product => product.category === activeCategory && product.active

@@ -20,6 +20,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { queryClient } from '@/lib/queryClient';
 import { generateQRCode } from '@/lib/qrcode';
 import { Logo } from '@/components/ui/logo';
+import { useSocketTheme } from '@/hooks/useSocketQuery';
+import { fetchTheme } from '@/lib/socket';
 
 // Helper function to get friendly name for PromptPay type
 function getPromptPayTypeName(type: string): string {
@@ -127,21 +129,21 @@ export default function Settings() {
     },
   });
 
-  // Fetch theme data from API
+  // Fetch theme data from Socket.IO
+  const { data: socketThemeData, isSuccess } = useSocketTheme<{
+    primary: string;
+    variant: string;
+    appearance: string;
+    radius: number;
+  }>();
+  
+  // Update the theme data state when socket data changes
   useEffect(() => {
-    const fetchThemeData = async () => {
-      try {
-        const response = await apiRequest('GET', '/api/theme');
-        if (response.data) {
-          setThemeData(response.data);
-        }
-      } catch (error) {
-        console.error('Error fetching theme data:', error);
-      }
-    };
-    
-    fetchThemeData();
-  }, []);
+    if (isSuccess && socketThemeData) {
+      setThemeData(socketThemeData);
+      console.log('Theme data loaded from socket:', socketThemeData);
+    }
+  }, [socketThemeData, isSuccess]);
 
   // Fetch current settings when component mounts
   useEffect(() => {
@@ -263,8 +265,25 @@ export default function Settings() {
           primary: data.store_theme
         };
         
-        // Send the updated theme to the API
-        await apiRequest('POST', '/api/theme', updatedTheme);
+        // Send the updated theme using Socket.IO
+        try {
+          // ใช้ Socket.IO แทน REST API
+          const { getSocket } = await import('@/lib/socket');
+          const socket = getSocket();
+          
+          // ส่งข้อมูลธีมเพื่ออัปเดต
+          socket.emit('updateTheme', updatedTheme, (response: { success: boolean; error?: string }) => {
+            if (!response.success) {
+              console.error('Failed to update theme via Socket.IO:', response.error);
+            } else {
+              console.log('Theme updated successfully via Socket.IO');
+            }
+          });
+        } catch (socketError) {
+          console.error('Socket.IO error when updating theme:', socketError);
+          // กรณีไม่สามารถส่งผ่าน Socket.IO ได้ จะใช้ REST API แทน
+          await apiRequest('POST', '/api/theme', updatedTheme);
+        }
       }
 
       toast({
@@ -272,9 +291,12 @@ export default function Settings() {
         description: 'บันทึกข้อมูลร้านและอัปเดตธีมเรียบร้อยแล้ว',
       });
 
-      // Invalidate any related queries
+      // สำหรับข้อมูล settings ยังใช้ REST API ในการเชื่อมต่อ
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/theme'] });
+      
+      // สำหรับข้อมูลธีม ใช้การรีเฟรชโดยตรงผ่าน Socket.IO
+      // Socket.IO จะส่งการอัปเดตอัตโนมัติไปยัง clients ทั้งหมด
+      // ทำให้ไม่จำเป็นต้องใช้ invalidateQueries สำหรับ '/api/theme'
       
       // Reload the page to show the new logo
       if (data.custom_logo) {

@@ -20,6 +20,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Import path and url for ES modules
+import * as url from 'url';
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+
+// Middleware ที่จะบันทึก API responses
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -50,15 +55,41 @@ app.use((req, res, next) => {
   next();
 });
 
+// กำหนด content type และ headers สำหรับ API requests
+app.use('/api', (req, res, next) => {
+  // กำหนดให้ทุก API response เป็น JSON
+  res.setHeader('Content-Type', 'application/json');
+  // อนุญาต CORS เฉพาะสำหรับการพัฒนา
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
+
+// สำหรับการอัปโหลดไฟล์
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
+// หน้ารีเซ็ตระบบ
+app.get('/reset', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/reset.html'));
+});
+
 (async () => {
+  // ลงทะเบียนเส้นทาง API ก่อนการตั้งค่า Vite
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // จัดการข้อผิดพลาด API
+  app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+  });
+
+  // ตรวจเช็คว่าการร้องขอ API ได้รับการจัดการไปแล้วหรือไม่
+  app.use('/api/*', (req, res) => {
+    // หากไม่มี route handler ใดๆ รองรับ API นี้ ให้ส่งข้อความแจ้งเตือน
+    res.status(404).json({ error: `API endpoint not found: ${req.originalUrl}` });
   });
 
   // importantly only setup vite in development and after
@@ -69,6 +100,17 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
+
+  // Global error handler
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
+    console.error(err);
+  });
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.

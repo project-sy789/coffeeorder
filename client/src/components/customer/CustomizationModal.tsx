@@ -6,7 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { 
+  useSocketCustomizationTypes, 
+  useSocketCustomizationTypeSettings 
+} from "@/hooks/useSocketQuery";
 
 interface CustomizationModalProps {
   product: Product;
@@ -56,20 +59,21 @@ export default function CustomizationModal({
   
   const [totalPrice, setTotalPrice] = useState(product.price);
   
-  // Query for all customization types
-  const { data: customizationTypes = [] } = useQuery<string[]>({
-    queryKey: ['/api/customization-types'],
-  });
+  // ใช้ Socket.IO สำหรับดึงข้อมูลประเภทการปรับแต่ง
+  const { data: customizationTypes = [] } = useSocketCustomizationTypes<string[]>();
   
-  // Query for customization type settings (multiple selection etc.)
-  const { data: typeSettings = {} } = useQuery<Record<string, { multipleSelection: boolean }>>({
-    queryKey: ['/api/customization-type-settings'],
-  });
+  // ใช้ Socket.IO สำหรับดึงข้อมูลการตั้งค่าประเภทการปรับแต่ง (multiple selection etc.)
+  const { data: typeSettings = {} } = useSocketCustomizationTypeSettings<Record<string, { multipleSelection: boolean }>>();
   
-  // Query for type display names (ชื่อหมวดหมู่สำหรับแสดงผล)
-  const { data: typeDisplayNames = {} } = useQuery<Record<string, string>>({
-    queryKey: ['/api/customization-types/display-names'],
-  });
+  // สำหรับชื่อสำหรับแสดงผล ใช้ค่าเริ่มต้นแบบ hardcode ก่อน
+  // จะมีการเพิ่ม API Socket.IO สำหรับดึงข้อมูลนี้ในอนาคต
+  const typeDisplayNames: Record<string, string> = {
+    'sugar_level': 'ระดับความหวาน',
+    'milk_type': 'ชนิดนม',
+    'temperature': 'อุณหภูมิ',
+    'toppings': 'ท็อปปิ้ง',
+    'extras': 'เพิ่มพิเศษ'
+  };
   
   // Create a lookup map for all option types
   const optionsByType = customizationOptions.reduce<Record<string, CustomizationOption[]>>((acc, option) => {

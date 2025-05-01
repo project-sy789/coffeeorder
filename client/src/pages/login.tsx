@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { loginUser } from "@/lib/socket";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -18,27 +19,27 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // ใช้ URL ที่ถูกต้องในการเชื่อมต่อกับเซิร์ฟเวอร์
-      const API_BASE_URL = window.location.hostname === 'localhost' 
-        ? 'http://localhost:5000' 
-        : '';
-        
-      const response = await fetch(`${API_BASE_URL}/api/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-        credentials: "include"
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "เข้าสู่ระบบไม่สำเร็จ");
+      console.log("เข้าสู่ระบบด้วย Socket.IO");
+      
+      // เข้าสู่ระบบด้วย Socket.IO ผ่านฟังก์ชัน
+      const response = await loginUser<{success: boolean, user: any, error?: string}>(username, password);
+      
+      // ตรวจสอบการตอบกลับจาก socket server
+      if (response.error) {
+        console.error("Login error:", response.error);
+        toast({
+          title: "เข้าสู่ระบบไม่สำเร็จ",
+          description: response.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
-
-      const data = await response.json();
-      localStorage.setItem("user", JSON.stringify(data));
+      
+      // ถ้าสำเร็จ
+      const userData = response.user;
+      console.log("Login successful:", userData);
+      localStorage.setItem("user", JSON.stringify(userData));
       toast({
         title: "เข้าสู่ระบบสำเร็จ",
         description: "กำลังนำคุณไปยังหน้าจอสำหรับพนักงาน",
@@ -53,7 +54,6 @@ export default function Login() {
         description: error.message || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };

@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
+import { useSocketQuery } from "@/hooks/useSocketQuery";
 import { 
   LineChart, 
   Line, 
@@ -33,6 +32,8 @@ export default function Dashboard() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   
+  // ไม่จำเป็นต้องใช้ safelyFetchData อีกต่อไปเนื่องจากใช้ Socket.IO แทน
+  
   // Get date range for sales chart
   const getStartDate = () => {
     const date = new Date();
@@ -47,71 +48,88 @@ export default function Dashboard() {
     return date.toISOString().split('T')[0];
   };
   
-  // Fetch daily sales
-  const { data: dailySales, isLoading: loadingDailySales } = useQuery({
-    queryKey: ['/api/analytics/daily-sales', todayStr],
-    queryFn: async () => {
-      // ดึงข้อมูลออเดอร์วันนี้ที่สถานะสำเร็จแล้วเท่านั้น
-      const { data: allOrders } = await apiRequest('GET', `/api/orders/date-range?startDate=${todayStr}&endDate=${todayStr}`);
-      
-      // กรองเฉพาะออเดอร์ที่สถานะเป็น "completed" เท่านั้น
-      const completedOrders = allOrders.filter((order: any) => order.status === "completed");
-      
-      // คำนวณยอดขายรวมจากออเดอร์ที่สำเร็จแล้วเท่านั้น
-      const totalSales = completedOrders.reduce((sum: number, order: any) => sum + order.total, 0);
-      
-      return {
-        date: todayStr,
-        sales: totalSales // ใช้ยอดขายที่คำนวณจากออเดอร์ที่สำเร็จแล้ว
-      };
+  // ใช้ Socket.IO ในการดึงข้อมูลยอดขายวันนี้
+  const { data: ordersToday = [], isLoading: loadingOrdersToday } = useSocketQuery<any[]>(
+    'getOrdersByDateRange',
+    {
+      startDate: todayStr,
+      endDate: todayStr
     }
-  });
+  );
   
-  // Fetch popular products - ใช้ข้อมูลจากออเดอร์ที่สำเร็จเท่านั้น
-  const { data: popularProducts = [], isLoading: loadingPopularProducts } = useQuery<{productId: number, productName: string, count: number}[]>({
-    queryKey: ['/api/analytics/popular-products'],
-    queryFn: async () => {
-      // ดึงข้อมูลสินค้ายอดนิยมจาก API
-      const { data } = await apiRequest('GET', '/api/analytics/popular-products?limit=5');
-      
-      // ข้อมูลที่ได้ควรเป็นข้อมูลจากออเดอร์ที่สำเร็จแล้วเท่านั้น
-      // ตัว API analytics/popular-products ควรได้รับการปรับแก้เพื่อกรองเฉพาะสินค้าในออเดอร์ที่สถานะเป็น completed
-      return data;
+  // คำนวณยอดขายวันนี้จากข้อมูลที่ได้
+  const dailySales = {
+    date: todayStr,
+    sales: ordersToday
+      .filter((order: any) => order.status === "completed")
+      .reduce((sum: number, order: any) => sum + order.total, 0)
+  };
+  
+  const loadingDailySales = loadingOrdersToday;
+  
+  // ใช้ Socket.IO ในการดึงข้อมูลสินค้ายอดนิยม
+  const { data: popularProducts = [], isLoading: loadingPopularProducts } = useSocketQuery<{productId: number, productName: string, count: number}[]>(
+    'getPopularProducts',
+    { limit: 5 }
+  );
+  
+  // ใช้ Socket.IO ในการดึงข้อมูลออเดอร์
+  const { data: orders = [], isLoading: loadingOrders } = useSocketQuery<any[]>(
+    'getOrders',
+    {},
+    {
+      select: (data) => {
+        try {
+          if (!Array.isArray(data)) {
+            console.error('Orders data is not an array:', data);
+            return [];
+          }
+          
+          // กรองเฉพาะออเดอร์ที่สถานะเป็น "completed" เท่านั้น
+          const completedOrders = data.filter((order: any) => order.status === "completed");
+          console.log('Completed orders:', completedOrders.length);
+          
+          // เรียงตามวันที่สร้างจากใหม่ไปเก่า และเลือกแค่ 5 รายการแรก
+          const sortedOrders = [...completedOrders].sort((a, b) => {
+            if (!a.createdAt || !b.createdAt) return 0;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }).slice(0, 5);
+          
+          console.log('Sorted and sliced orders:', sortedOrders.length);
+          return sortedOrders;
+        } catch (error) {
+          console.error('Error processing orders data:', error);
+          return [];
+        }
+      },
     }
-  });
+  );
   
-  // Fetch recent orders
-  const { data: orders = [], isLoading: loadingOrders } = useQuery<any[]>({
-    queryKey: ['/api/orders'],
-    queryFn: async () => {
-      const { data } = await apiRequest('GET', '/api/orders');
-      return data;
-    },
-    select: (data) => {
-      // กรองเฉพาะออเดอร์ที่สถานะเป็น "completed" เท่านั้น
-      const completedOrders = data.filter((order: any) => order.status === "completed");
-      
-      // เรียงตามวันที่สร้างจากใหม่ไปเก่า และเลือกแค่ 5 รายการแรก
-      return [...completedOrders].sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ).slice(0, 5);
-    },
-  });
+  // ใช้ Socket.IO ในการดึงข้อมูลออเดอร์ตามช่วงวันที่สำหรับกราฟยอดขาย
+  const { data: ordersByDateRange = [], isLoading: loadingOrdersByDateRange } = useSocketQuery<any[]>(
+    'getOrdersByDateRange',
+    {
+      startDate: getStartDate(),
+      endDate: todayStr
+    }
+  );
   
-  // Fetch sales by date range for chart
-  const { data: salesData = [], isLoading: loadingSalesData } = useQuery<any[]>({
-    queryKey: ['/api/analytics/sales-by-date-range', getStartDate(), todayStr],
-    queryFn: async () => {
-      // ดึงข้อมูลออเดอร์ตามช่วงวันที่
-      const { data: orders } = await apiRequest('GET', `/api/orders/date-range?startDate=${getStartDate()}&endDate=${todayStr}`);
-      
+  // คำนวณข้อมูลสำหรับกราฟยอดขาย
+  const salesData = useMemo(() => {
+    try {
       // กรองเฉพาะออเดอร์ที่สถานะเป็น "completed" เท่านั้น
-      const completedOrders = orders.filter((order: any) => order.status === "completed");
+      const completedOrders = ordersByDateRange.filter((order: any) => order.status === "completed");
+      console.log('Completed orders for chart:', completedOrders.length);
       
       // จัดกลุ่มข้อมูลตามวันที่และคำนวณยอดขายในแต่ละวัน
       const salesByDate: {[key: string]: number} = {};
       
       completedOrders.forEach((order: any) => {
+        if (!order.createdAt) {
+          console.warn('Order missing createdAt:', order);
+          return;
+        }
+        
         const orderDate = order.createdAt.split('T')[0]; // รูปแบบ YYYY-MM-DD
         salesByDate[orderDate] = (salesByDate[orderDate] || 0) + order.total;
       });
@@ -126,8 +144,13 @@ export default function Dashboard() {
       chartData.sort((a, b) => a.date.localeCompare(b.date));
       
       return chartData;
+    } catch (error) {
+      console.error('Error processing sales data by date range:', error);
+      return [];
     }
-  });
+  }, [ordersByDateRange]);
+  
+  const loadingSalesData = loadingOrdersByDateRange;
   
   // Get status display and color class
   const getOrderStatusInfo = (status: string) => {

@@ -20,7 +20,7 @@ import {
   Link,
   Award
 } from 'lucide-react';
-import { useQuery } from "@tanstack/react-query";
+import { useSocketQuery } from "@/hooks/useSocketQuery";
 
 interface SidebarProps {
   activePage: string;
@@ -28,11 +28,14 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activePage, onPageChange }: SidebarProps) {
-  // Get store name from API
-  const { data: storeName = "ร้านกาแฟ" } = useQuery<string>({
-    queryKey: ['/api/settings/store_name'],
-    select: (data: any) => data?.value || "ร้านกาแฟ",
-  });
+  // ใช้ Socket.IO ในการดึงข้อมูลชื่อร้านค้า
+  const { data: storeSetting } = useSocketQuery<{ key: string, value: string, description: string, id: number }>(
+    'getSetting',
+    { key: 'store_name' }
+  );
+  
+  // กำหนดค่าชื่อร้านค้าจากข้อมูลที่ได้รับ หรือใช้ค่าเริ่มต้นถ้าไม่มีข้อมูล
+  const storeName = storeSetting?.value || "ร้านกาแฟ";
   
   const menuItems = [
     { id: 'dashboard', label: 'แดชบอร์ด', group: 'main', icon: <LayoutDashboard className="w-4 h-4 mr-2" /> },
