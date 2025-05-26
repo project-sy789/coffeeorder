@@ -1,0 +1,56 @@
+2025-05-26T02:53:29.727913646Z 2:53:29 AM [express] GET /api/settings/store_name 304 in 18ms :: {"id":1,"key":"store_name","value":…
+2025-05-26T02:53:31.199390128Z Socket.IO client connected with ID: Gb2GbnKwwyAYDPDgAAAJ
+2025-05-26T02:53:31.347516558Z Socket request: getTheme
+2025-05-26T02:53:31.348637804Z Theme data from storage: undefined
+2025-05-26T02:53:31.348647704Z Using callback function for getTheme response
+2025-05-26T02:53:31.791842407Z Socket request: getCustomizationOptions
+2025-05-26T02:53:31.872964686Z Socket request: getCustomizationTypes
+2025-05-26T02:53:31.873003797Z Socket request: getCustomizationTypeSettings
+2025-05-26T02:53:34.710530766Z Socket request: getTheme
+2025-05-26T02:53:34.711934698Z Theme data from storage: undefined
+2025-05-26T02:53:34.711947219Z Using callback function for getTheme response
+2025-05-26T02:53:37.378402483Z User registered as admin, socket ID: Gb2GbnKwwyAYDPDgAAAJ
+2025-05-26T02:53:37.378432723Z Current admin users: 1
+2025-05-26T02:53:37.462214984Z Socket request: getProducts
+2025-05-26T02:53:37.545105545Z Socket request: getCategories
+2025-05-26T02:53:37.624165847Z Socket request: getProducts
+2025-05-26T02:53:37.697360711Z Socket request: getCategories
+2025-05-26T02:53:39.716356285Z Socket request: getTheme
+2025-05-26T02:53:39.717538763Z Theme data from storage: undefined
+2025-05-26T02:53:39.717559543Z Using callback function for getTheme response
+2025-05-26T02:53:44.726997227Z Socket request: getTheme
+2025-05-26T02:53:44.728077822Z Theme data from storage: undefined
+2025-05-26T02:53:44.728093952Z Using callback function for getTheme response
+2025-05-26T02:53:45.883357699Z Sending automatic analytics updates...
+2025-05-26T02:53:45.888869367Z Error in automatic analytics update: error: column "current_quantity" does not exist
+2025-05-26T02:53:45.888885258Z     at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2025-05-26T02:53:45.888890268Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-05-26T02:53:45.888894898Z     at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+2025-05-26T02:53:45.888899738Z     at async DatabaseStorage.getLowStockItems (file:///opt/render/project/src/dist/index.js:935:16)
+2025-05-26T02:53:45.888903808Z     at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:2799:29) {
+2025-05-26T02:53:45.888919819Z   length: 116,
+2025-05-26T02:53:45.888923559Z   severity: 'ERROR',
+2025-05-26T02:53:45.888926339Z   code: '42703',
+2025-05-26T02:53:45.888928979Z   detail: undefined,
+2025-05-26T02:53:45.888931649Z   hint: undefined,
+2025-05-26T02:53:45.888934659Z   position: '81',
+2025-05-26T02:53:45.888938209Z   internalPosition: undefined,
+2025-05-26T02:53:45.888941509Z   internalQuery: undefined,
+2025-05-26T02:53:45.888944319Z   where: undefined,
+2025-05-26T02:53:45.888946819Z   schema: undefined,
+2025-05-26T02:53:45.888949049Z   table: undefined,
+2025-05-26T02:53:45.888951649Z   column: undefined,
+2025-05-26T02:53:45.888954509Z   dataType: undefined,
+2025-05-26T02:53:45.888957069Z   constraint: undefined,
+2025-05-26T02:53:45.88895972Z   file: 'parse_relation.c',
+2025-05-26T02:53:45.88896278Z   line: '3722',
+2025-05-26T02:53:45.88896569Z   routine: 'errorMissingColumn'
+2025-05-26T02:53:45.88896872Z }
+2025-05-26T02:53:49.725868474Z Socket request: getTheme
+2025-05-26T02:53:49.746219428Z Theme data from storage: undefined
+2025-05-26T02:53:49.746250228Z Using callback function for getTheme response
+2025-05-26T02:53:55.796699167Z Socket request: getTheme
+2025-05-26T02:53:55.798367176Z Theme data from storage: undefined
+2025-05-26T02:53:55.798385217Z Using callback function for getTheme response
+2025-05-26T02:54:51.277025225Z Socket.IO client disconnected: Gb2GbnKwwyAYDPDgAAAJ
+2025-05-26T02:54:51.277050396Z User removed from admin, remaining: 0

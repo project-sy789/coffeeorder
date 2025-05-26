@@ -873,7 +873,7 @@ export class DatabaseStorage implements IStorage {
   async getLowStockItems(): Promise<Inventory[]> {
     return await db.select()
       .from(schema.inventory)
-      .where(sql`current_quantity <= minimum_quantity`);
+      .where(sql`quantity <= "minimumLevel"`);
   }
   
   async getProductUsageReport(): Promise<{productId: number, productName: string, inventoryUsage: {inventoryId: number, inventoryName: string, quantity: number, unit: string}[]}[]> {
