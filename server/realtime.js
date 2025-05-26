@@ -158,22 +158,62 @@ export function setupSocketIO(httpServer) {
         const util = await import('util');
         const scryptAsync = util.promisify(scrypt.scrypt);
         
-        // ฟังก์ชั่นเปรียบเทียบรหัสผ่าน
+        // ฟังก์ชันเปรียบเทียบรหัสผ่านที่มีความปลอดภัย
         async function comparePasswords(supplied, stored) {
-          const [hashed, salt] = stored.split(".");
-          const hashedBuf = Buffer.from(hashed, "hex");
-          const suppliedBuf = await scryptAsync(supplied, salt, 64);
-          
-          // เปรียบเทียบแบบ timing-safe
-          return scrypt.timingSafeEqual(hashedBuf, suppliedBuf);
+          try {
+            // กรณีรหัสผ่านที่ตั้งไว้เป็น plain:xxx ให้เปรียบเทียบโดยตรง
+            if (stored && stored.startsWith('plain:')) {
+              const plainPassword = stored.substring(6); // ตัด 'plain:' ออก
+              return supplied === plainPassword;
+            }
+            
+            // กรณีที่ stored ไม่ถูกต้อง
+            if (!stored || !stored.includes('.')) {
+              console.error('รูปแบบรหัสผ่านไม่ถูกต้อง');
+              return false;
+            }
+            
+            // ใช้วิธีปกติเปรียบเทียบรหัสผ่านที่ถูก hash
+            const [hashed, salt] = stored.split('.');
+            if (!hashed || !salt) {
+              console.error('รูปแบบรหัสผ่านไม่ถูกต้อง');
+              return false;
+            }
+            
+            try {
+              // ถ้ารหัสผ่านถูกต้อง ให้ผ่าน
+              const hashedBuf = Buffer.from(hashed, 'hex');
+              const suppliedBuf = await scryptAsync(supplied, salt, 64);
+              return hashedBuf.length === suppliedBuf.length && scrypt.timingSafeEqual(hashedBuf, suppliedBuf);
+            } catch (error) {
+              console.error('เกิดข้อผิดพลาดในการเปรียบเทียบรหัสผ่าน:', error);
+              return false;
+            }
+          } catch (error) {
+            console.error('เกิดข้อผิดพลาดในการเปรียบเทียบรหัสผ่าน:', error);
+            return false;
+          }
         }
         
         // ตรวจสอบรหัสผ่าน
-        const passwordMatch = await comparePasswords(password, user.password);
-        
-        if (!passwordMatch) {
-          console.log('Password does not match for user:', username);
-          callback({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+        try {
+          // ถ้ารหัสผ่านเป็น null หรือ undefined หรือไม่ได้อยู่ในรูปแบบที่ถูกต้อง ให้แจ้งว่าล็อกอินไม่สำเร็จทันที
+          if (!user.password || !user.password.includes('.')) {
+            console.log('Invalid password format for user:', username);
+            callback({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+            return;
+          }
+          
+          const passwordMatch = await comparePasswords(password, user.password);
+          
+          if (!passwordMatch) {
+            console.log('Password does not match for user:', username);
+            callback({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+            return;
+          }
+        } catch (error) {
+          console.error('Error comparing passwords:', error);
+          callback({ success: false, error: 'เกิดข้อผิดพลาดในการตรวจสอบรหัสผ่าน' });
           return;
         }
         

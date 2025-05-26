@@ -130,91 +130,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // สร้าง Router สำหรับระบบติดตั้งและแก้ไขปัญหา
   const installRouter = express.Router();
   
-  // หน้าติดตั้งหลัก
+  // ปิดการใช้งานหน้าติดตั้ง - เพื่อความปลอดภัย
   app.get('/install', (req, res) => {
-    // ส่งไฟล์ HTML หน้าติดตั้ง
-    res.sendFile(path.join(process.cwd(), 'public/install/index.html'));
+    // ส่งข้อความแจ้งว่าระบบติดตั้งถูกปิดใช้งาน
+    res.status(403).json({
+      success: false,
+      message: 'ระบบติดตั้งถูกปิดใช้งานเพื่อความปลอดภัย กรุณาติดต่อผู้ดูแลระบบ'
+    });
   });
   
-  // API สำหรับการติดตั้งระบบ
-  app.post('/api/install', async (req, res) => {
-    try {
-      const { storeName, username, password, installDemoData } = req.body;
-      
-      if (!storeName || !username || !password) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "กรุณากรอกข้อมูลให้ครบถ้วน" 
-        });
-      }
-      
-      console.log('กำลังตรวจสอบสถานะการติดตั้งระบบ...');
-      
-      // ตรวจสอบว่ามีข้อมูลร้านค้าและผู้ดูแลระบบที่ยังใช้งานอยู่หรือไม่
-      const existingStore = await storage.getSetting('store_name');
-      const existingUsers = await storage.getUsersByRole('admin');
-      const activeAdmins = existingUsers?.filter(user => user.active !== false) || [];
-      
-      // ถ้ามีทั้งชื่อร้าน (ที่ไม่ว่างเปล่า) และผู้ดูแลระบบที่ active อยู่ 
-      // แสดงว่ามีการติดตั้งระบบแล้ว
-      if (existingStore && existingStore.value && existingStore.value.trim() !== '' && 
-          activeAdmins.length > 0) {
-        console.log('พบว่ามีการติดตั้งระบบแล้ว: ชื่อร้าน =', existingStore.value, 
-                    ', ผู้ดูแลระบบที่ยังใช้งาน =', activeAdmins.length, 'คน');
-        
-        return res.status(400).json({ 
-          success: false, 
-          message: "มีการติดตั้งระบบไปแล้ว กรุณาใช้เมนูรีเซ็ตระบบหากต้องการติดตั้งใหม่" 
-        });
-      }
-      
-      console.log('ไม่พบการติดตั้งระบบก่อนหน้า หรือระบบถูกรีเซ็ตแล้ว ดำเนินการติดตั้งใหม่...');
-      console.log('ข้อมูลร้านค้า:', existingStore ? existingStore.value : 'ไม่มี');
-      console.log('จำนวนผู้ดูแลระบบที่ยังใช้งาน:', activeAdmins.length);
-      
-      // สร้างบัญชีผู้ดูแลระบบ
-      const hashedPassword = await hashPassword(password);
-      
-      const user = await storage.createUser({
-        username,
-        password: hashedPassword,
-        name: 'ผู้ดูแลระบบ',
-        role: 'admin',
-        active: true
-      });
-      
-      // บันทึกข้อมูลร้านค้า
-      await storage.createOrUpdateSetting('store_name', storeName, 'ชื่อร้าน');
-      await storage.createOrUpdateSetting('store_status', 'open', 'สถานะการเปิดให้บริการ (open/closed)');
-      
-      // สร้างข้อมูลพื้นฐานอื่นๆ ที่จำเป็น
-      await storage.createOrUpdateSetting('promptpay_id', '0899999999', 'หมายเลขพร้อมเพย์สำหรับรับชำระเงิน');
-      await storage.createOrUpdateSetting('promptpay_type', 'phone', 'ประเภทพร้อมเพย์ (phone/id)');
-      
-      // ติดตั้งข้อมูลตัวอย่างเสมอ ไม่ว่าจะเลือกหรือไม่
-      try {
-        console.log('กำลังติดตั้งข้อมูลตัวอย่าง...');
-        await setupDemoData(true);
-        console.log('ติดตั้งข้อมูลตัวอย่างเรียบร้อยแล้ว');
-      } catch (demoError) {
-        console.error('เกิดข้อผิดพลาดในการติดตั้งข้อมูลตัวอย่าง:', demoError);
-        // แม้ว่าจะมีข้อผิดพลาดในการติดตั้งข้อมูลตัวอย่าง แต่เราจะไม่ทำให้การติดตั้งระบบล้มเหลว
-      }
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: installDemoData ? 
-          "ติดตั้งระบบและข้อมูลตัวอย่างเรียบร้อยแล้ว" : 
-          "ติดตั้งระบบเรียบร้อยแล้ว", 
-        user 
-      });
-    } catch (error) {
-      console.error('Installation error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || "เกิดข้อผิดพลาดในการติดตั้งระบบ" 
-      });
-    }
+  // API สำหรับการติดตั้งระบบ - ปิดการใช้งานเพื่อความปลอดภัย
+  app.post('/api/install', (req, res) => {
+    // ส่งข้อความแจ้งว่าระบบติดตั้งถูกปิดใช้งาน
+    return res.status(403).json({
+      success: false,
+      message: 'ระบบติดตั้งถูกปิดใช้งานเพื่อความปลอดภัย กรุณาติดต่อผู้ดูแลระบบ'
+    });
   });
   
   // หน้าแก้ไขปัญหาการเข้าสู่ระบบ
@@ -541,6 +472,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // API ฉุกเฉินสำหรับรีเซ็ตรหัสผ่านผู้ใช้ (ใช้เฉพาะแก้ปัญหาเท่านั้น)
+  app.post('/api/reset-password-direct', async (req, res) => {
+    try {
+      const { username, newPassword } = req.body;
+      
+      if (!username || !newPassword) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'กรุณาระบุชื่อผู้ใช้และรหัสผ่านใหม่' 
+        });
+      }
+      
+      // ค้นหาผู้ใช้
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'ไม่พบผู้ใช้ในระบบ' 
+        });
+      }
+      
+      // สร้างรหัสผ่านใหม่แบบง่าย (ไม่ใช้ hash)
+      await storage.updateUser(user.id, { 
+        password: newPassword, 
+        active: true 
+      });
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'รีเซ็ตรหัสผ่านสำเร็จ' 
+      });
+    } catch (error: any) {
+      console.error('Error resetting password directly:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน' 
+      });
+    }
+  });
+
   // API สำหรับดึงข้อมูลการตั้งค่าตาม key
   app.get('/api/settings/:key', async (req, res) => {
     try {

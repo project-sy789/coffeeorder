@@ -59,7 +59,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 // กำหนดค่า DATABASE_URL สำรองในกรณีที่ไม่ได้รับจาก environment variables
-const DEFAULT_DB_URL = "postgresql://coffee_order_app_user:Rr0uxSWpcVyqUChTNYz8oF0wJ9WX1grz@dpg-d08ecufdiees73993aj0-a/coffee_order_app";
+// ใช้ URL ที่เชื่อมต่อได้จริงในสภาพแวดล้อม Replit
+const DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/postgres";
 const connectionString = process.env.DATABASE_URL || DEFAULT_DB_URL;
 
 // สร้างการเชื่อมต่อกับฐานข้อมูล
